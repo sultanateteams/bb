@@ -8,7 +8,7 @@ export default function Chiqim() {
       <PageHeader title="Chiqim" subtitle="Barcha moliyaviy chiqimlar yagona joyda" showAdd addLabel="Chiqim qo'shish" showExport />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="stat-card"><div className="text-xs text-muted-foreground">Bugun</div><div className="text-xl font-semibold mt-1">6 900 000 so'm</div></div>
-        <div className="stat-card"><div className="text-xs text-muted-foreground">Bu hafta</div><div className="text-xl font-semibold mt-1">{total.toLocaleString("ru-RU").replaceAll(",", " ")} so'm</div></div>
+        <div className="stat-card"><div className="text-xs text-muted-foreground">Bu hafta</div><div className="text-xl font-semibold mt-1">{total.toLocaleString("ru-RU").split(",").join(" ")} so'm</div></div>
         <div className="stat-card"><div className="text-xs text-muted-foreground">Bu oy</div><div className="text-xl font-semibold mt-1">214 800 000 so'm</div></div>
       </div>
       <div className="rounded-xl border bg-card overflow-hidden">
