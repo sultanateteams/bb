@@ -10,6 +10,7 @@ import OmborImportTarixi from "./pages/OmborImportTarixi";
 import ICH from "./pages/ICH";
 import WL from "./pages/WL";
 import Buyurtma from "./pages/Buyurtma";
+import BuyurtmaDetail from "./pages/BuyurtmaDetail";
 import Chiqim from "./pages/Chiqim";
 import Kirim from "./pages/Kirim";
 import { MahsulotTurlari, XomashiyoTurlari } from "./pages/Catalogs";
