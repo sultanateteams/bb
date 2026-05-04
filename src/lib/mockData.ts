@@ -147,8 +147,43 @@ export const ichBatches = [
   { id: "P-316", date: "26.04.2026", products: "Salfetka mini — 1500 dona", cost: "2 100 000", scrap: "4 kg", user: "Admin" },
 ];
 
-export const wlOps = [
-  { id: "WL-104", date: "28.04.2026", product: "Gel 1000gr", qty: 200, factory: "Zavod-A", status: "Qabul kutilmoqda", cost: "8 400 000" },
-  { id: "WL-103", date: "26.04.2026", product: "Suyuq sovun 500ml", qty: 350, factory: "Zavod-B", status: "Qabul qilindi", cost: "9 100 000" },
-  { id: "WL-102", date: "24.04.2026", product: "Poroshok 900g", qty: 180, factory: "Zavod-A", status: "Qabul qilindi", cost: "6 240 000" },
+export type WlStatus = "Ishlab chiqarishdagi" | "Ishlab chiqarilgan";
+
+export interface WlOp {
+  id: string;
+  date: string;
+  product: string;
+  productId: number;
+  qty: number;
+  factory: string;
+  status: WlStatus;
+  cost: string;
+}
+
+export const wlOps: WlOp[] = [
+  { id: "WL-104", date: "28.04.2026", product: "Gel 1000gr", productId: 4, qty: 200, factory: "Zavod-A", status: "Ishlab chiqarishdagi", cost: "8 400 000" },
+  { id: "WL-105", date: "27.04.2026", product: "Poroshok 900g", productId: 6, qty: 150, factory: "Zavod-A", status: "Ishlab chiqarishdagi", cost: "5 200 000" },
+  { id: "WL-103", date: "26.04.2026", product: "Suyuq sovun 500ml", productId: 5, qty: 350, factory: "Zavod-B", status: "Ishlab chiqarilgan", cost: "9 100 000" },
+  { id: "WL-102", date: "24.04.2026", product: "Poroshok 900g", productId: 6, qty: 180, factory: "Zavod-A", status: "Ishlab chiqarilgan", cost: "6 240 000" },
+];
+
+export interface RawImportRecord {
+  id: number;
+  materialId: number;
+  name: string;
+  branch: Branch; // ICH | WL
+  qty: number;
+  unit: string;
+  price: string; // per unit
+  total: string;
+  note: string;
+  date: string;
+}
+
+export const rawImportHistory: RawImportRecord[] = [
+  { id: 1, materialId: 1, name: "Sellyuloza 365kun", branch: "ich", qty: 500, unit: "kg", price: "8 200", total: "4 100 000", note: "Sherzod Trade — invoys #4421", date: "28.04.2026" },
+  { id: 2, materialId: 4, name: "Korobka 1000gr", branch: "wl", qty: 1000, unit: "dona", price: "1 200", total: "1 200 000", note: "Box-Pro MChJ", date: "26.04.2026" },
+  { id: 3, materialId: 2, name: "Etiketka A4", branch: "ich", qty: 5000, unit: "dona", price: "180", total: "900 000", note: "Print Center", date: "22.04.2026" },
+  { id: 4, materialId: 5, name: "Selofan rulon", branch: "wl", qty: 80, unit: "kg", price: "9 800", total: "784 000", note: "", date: "18.04.2026" },
+  { id: 5, materialId: 3, name: "Klej PVA", branch: "ich", qty: 40, unit: "litre", price: "14 500", total: "580 000", note: "Kimyo Sklad", date: "12.04.2026" },
 ];
