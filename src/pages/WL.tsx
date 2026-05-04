@@ -20,7 +20,7 @@ export default function WL() {
                 <td className="font-medium">{w.product}</td>
                 <td className="tabular-nums">{w.qty} dona</td>
                 <td className="text-muted-foreground">{w.factory}</td>
-                <td><StatusBadge status={w.status} tone={w.status === "Qabul qilindi" ? "success" : "warning"} /></td>
+                <td><StatusBadge status={w.status} tone={w.status === "Ishlab chiqarilgan" ? "success" : "warning"} /></td>
                 <td className="text-right tabular-nums">{w.cost} so'm</td>
               </tr>
             ))}

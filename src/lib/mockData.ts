@@ -56,24 +56,47 @@ export const recentOrders = [
   { id: "B-2037", shop: "Saodat Mart", agent: "S. Yusupov", total: "15 600 000", status: "Tayyor", paid: true },
 ];
 
-export const products = [
-  { id: 1, name: "Salfetka 365 (24)", branch: "ich" as Branch, unit: "dona", stock: 1240, min: 500, price: "9 500" },
-  { id: 2, name: "Tualet qog'ozi 12-li", branch: "ich" as Branch, unit: "upak", stock: 380, min: 200, price: "22 000" },
-  { id: 3, name: "Salfetka mini", branch: "ich" as Branch, unit: "dona", stock: 4820, min: 1000, price: "3 200" },
-  { id: 4, name: "Gel 1000gr", branch: "wl" as Branch, unit: "dona", stock: 612, min: 300, price: "31 500" },
-  { id: 5, name: "Suyuq sovun 500ml", branch: "wl" as Branch, unit: "dona", stock: 980, min: 400, price: "18 700" },
-  { id: 6, name: "Poroshok 900g", branch: "wl" as Branch, unit: "dona", stock: 240, min: 300, price: "27 800" },
-  { id: 7, name: "Pampers Premium L", branch: "tm" as Branch, unit: "upak", stock: 12, min: 50, price: "138 000" },
-  { id: 8, name: "Salfetka import 30-li", branch: "tm" as Branch, unit: "upak", stock: 88, min: 60, price: "42 000" },
+export type ProductStatus = "bo'sh" | "band";
+
+export interface Product {
+  id: number;
+  name: string;
+  branch: Branch;
+  unit: string;
+  stock: number;
+  min: number;
+  price: string;
+  status: ProductStatus;
+}
+
+export const products: Product[] = [
+  { id: 1, name: "Salfetka 365 (24)", branch: "ich", unit: "dona", stock: 1240, min: 500, price: "9 500", status: "bo'sh" },
+  { id: 2, name: "Tualet qog'ozi 12-li", branch: "ich", unit: "upak", stock: 380, min: 200, price: "22 000", status: "band" },
+  { id: 3, name: "Salfetka mini", branch: "ich", unit: "dona", stock: 4820, min: 1000, price: "3 200", status: "bo'sh" },
+  { id: 4, name: "Gel 1000gr", branch: "wl", unit: "dona", stock: 612, min: 300, price: "31 500", status: "bo'sh" },
+  { id: 5, name: "Suyuq sovun 500ml", branch: "wl", unit: "dona", stock: 980, min: 400, price: "18 700", status: "band" },
+  { id: 6, name: "Poroshok 900g", branch: "wl", unit: "dona", stock: 240, min: 300, price: "27 800", status: "bo'sh" },
+  { id: 7, name: "Pampers Premium L", branch: "tm", unit: "upak", stock: 12, min: 50, price: "138 000", status: "bo'sh" },
+  { id: 8, name: "Salfetka import 30-li", branch: "tm", unit: "upak", stock: 88, min: 60, price: "42 000", status: "bo'sh" },
 ];
 
-export const rawMaterials = [
-  { id: 1, name: "Sellyuloza 365kun", branch: "ich" as Branch, unit: "kg", stock: 124, min: 200, price: "8 200" },
-  { id: 2, name: "Etiketka A4", branch: "ich" as Branch, unit: "dona", stock: 1820, min: 3000, price: "180" },
-  { id: 3, name: "Klej PVA", branch: "ich" as Branch, unit: "litre", stock: 84, min: 50, price: "14 500" },
-  { id: 4, name: "Korobka 1000gr", branch: "wl" as Branch, unit: "dona", stock: 340, min: 500, price: "1 200" },
-  { id: 5, name: "Selofan rulon", branch: "wl" as Branch, unit: "kg", stock: 220, min: 100, price: "9 800" },
-  { id: 6, name: "Etiketka WL", branch: "wl" as Branch, unit: "dona", stock: 5400, min: 2000, price: "320" },
+export interface RawMaterial {
+  id: number;
+  name: string;
+  branch: Branch;
+  unit: string;
+  stock: number;
+  min: number;
+  price: string;
+}
+
+export const rawMaterials: RawMaterial[] = [
+  { id: 1, name: "Sellyuloza 365kun", branch: "ich", unit: "kg", stock: 124, min: 200, price: "8 200" },
+  { id: 2, name: "Etiketka A4", branch: "ich", unit: "dona", stock: 1820, min: 3000, price: "180" },
+  { id: 3, name: "Klej PVA", branch: "ich", unit: "litre", stock: 84, min: 50, price: "14 500" },
+  { id: 4, name: "Korobka 1000gr", branch: "wl", unit: "dona", stock: 340, min: 500, price: "1 200" },
+  { id: 5, name: "Selofan rulon", branch: "wl", unit: "kg", stock: 220, min: 100, price: "9 800" },
+  { id: 6, name: "Etiketka WL", branch: "wl", unit: "dona", stock: 5400, min: 2000, price: "320" },
 ];
 
 export const shops = [
@@ -124,8 +147,43 @@ export const ichBatches = [
   { id: "P-316", date: "26.04.2026", products: "Salfetka mini — 1500 dona", cost: "2 100 000", scrap: "4 kg", user: "Admin" },
 ];
 
-export const wlOps = [
-  { id: "WL-104", date: "28.04.2026", product: "Gel 1000gr", qty: 200, factory: "Zavod-A", status: "Qabul kutilmoqda", cost: "8 400 000" },
-  { id: "WL-103", date: "26.04.2026", product: "Suyuq sovun 500ml", qty: 350, factory: "Zavod-B", status: "Qabul qilindi", cost: "9 100 000" },
-  { id: "WL-102", date: "24.04.2026", product: "Poroshok 900g", qty: 180, factory: "Zavod-A", status: "Qabul qilindi", cost: "6 240 000" },
+export type WlStatus = "Ishlab chiqarishdagi" | "Ishlab chiqarilgan";
+
+export interface WlOp {
+  id: string;
+  date: string;
+  product: string;
+  productId: number;
+  qty: number;
+  factory: string;
+  status: WlStatus;
+  cost: string;
+}
+
+export const wlOps: WlOp[] = [
+  { id: "WL-104", date: "28.04.2026", product: "Gel 1000gr", productId: 4, qty: 200, factory: "Zavod-A", status: "Ishlab chiqarishdagi", cost: "8 400 000" },
+  { id: "WL-105", date: "27.04.2026", product: "Poroshok 900g", productId: 6, qty: 150, factory: "Zavod-A", status: "Ishlab chiqarishdagi", cost: "5 200 000" },
+  { id: "WL-103", date: "26.04.2026", product: "Suyuq sovun 500ml", productId: 5, qty: 350, factory: "Zavod-B", status: "Ishlab chiqarilgan", cost: "9 100 000" },
+  { id: "WL-102", date: "24.04.2026", product: "Poroshok 900g", productId: 6, qty: 180, factory: "Zavod-A", status: "Ishlab chiqarilgan", cost: "6 240 000" },
+];
+
+export interface RawImportRecord {
+  id: number;
+  materialId: number;
+  name: string;
+  branch: Branch; // ICH | WL
+  qty: number;
+  unit: string;
+  price: string; // per unit
+  total: string;
+  note: string;
+  date: string;
+}
+
+export const rawImportHistory: RawImportRecord[] = [
+  { id: 1, materialId: 1, name: "Sellyuloza 365kun", branch: "ich", qty: 500, unit: "kg", price: "8 200", total: "4 100 000", note: "Sherzod Trade — invoys #4421", date: "28.04.2026" },
+  { id: 2, materialId: 4, name: "Korobka 1000gr", branch: "wl", qty: 1000, unit: "dona", price: "1 200", total: "1 200 000", note: "Box-Pro MChJ", date: "26.04.2026" },
+  { id: 3, materialId: 2, name: "Etiketka A4", branch: "ich", qty: 5000, unit: "dona", price: "180", total: "900 000", note: "Print Center", date: "22.04.2026" },
+  { id: 4, materialId: 5, name: "Selofan rulon", branch: "wl", qty: 80, unit: "kg", price: "9 800", total: "784 000", note: "", date: "18.04.2026" },
+  { id: 5, materialId: 3, name: "Klej PVA", branch: "ich", qty: 40, unit: "litre", price: "14 500", total: "580 000", note: "Kimyo Sklad", date: "12.04.2026" },
 ];
