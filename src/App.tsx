@@ -14,6 +14,7 @@ import BuyurtmaDetail from "./pages/BuyurtmaDetail";
 import Chiqim from "./pages/Chiqim";
 import Kirim from "./pages/Kirim";
 import { MahsulotTurlari, XomashiyoTurlari } from "./pages/Catalogs";
+import XomashiyoTurlariPage from "./pages/XomashiyoTurlari/XomashiyoTurlariPage";
 import { CEO, Diler, Dokon, SavdoVakili, Haydovchi, Sozlamalar } from "./pages/Partners";
 import NotFound from "./pages/NotFound";
 
@@ -37,7 +38,7 @@ const App = () => (
             <Route path="/kirim" element={<Kirim />} />
             <Route path="/chiqim" element={<Chiqim />} />
             <Route path="/mahsulot-turlari" element={<MahsulotTurlari />} />
-            <Route path="/xomashiyo-turlari" element={<XomashiyoTurlari />} />
+            <Route path="/xomashiyo-turlari" element={<XomashiyoTurlariPage />} />
             <Route path="/ceo" element={<CEO />} />
             <Route path="/diler" element={<Diler />} />
             <Route path="/dokon" element={<Dokon />} />
