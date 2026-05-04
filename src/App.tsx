@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import AppLayout from "./components/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import Ombor from "./pages/Ombor";
+import OmborImportTarixi from "./pages/OmborImportTarixi";
 import ICH from "./pages/ICH";
 import WL from "./pages/WL";
 import Buyurtma from "./pages/Buyurtma";
@@ -27,6 +28,7 @@ const App = () => (
           <Route element={<AppLayout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/ombor" element={<Ombor />} />
+            <Route path="/ombor/import-tarixi" element={<OmborImportTarixi />} />
             <Route path="/ich" element={<ICH />} />
             <Route path="/wl" element={<WL />} />
             <Route path="/buyurtma" element={<Buyurtma />} />

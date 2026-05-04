@@ -1,14 +1,16 @@
 import { PageHeader } from "@/components/PageHeader";
-import { expenses } from "@/lib/mockData";
+import { useOmborStore } from "@/lib/omborStore";
+import { parseNumber, formatNumber } from "@/lib/utils";
 
 export default function Chiqim() {
-  const total = expenses.reduce((s, e) => s + parseInt(e.amount.replace(/\s/g, ""), 10), 0);
+  const expenses = useOmborStore((s) => s.expenses);
+  const total = expenses.reduce((s, e) => s + parseNumber(e.amount), 0);
   return (
     <div className="space-y-6">
       <PageHeader title="Chiqim" subtitle="Barcha moliyaviy chiqimlar yagona joyda" showAdd addLabel="Chiqim qo'shish" showExport />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="stat-card"><div className="text-xs text-muted-foreground">Bugun</div><div className="text-xl font-semibold mt-1">6 900 000 so'm</div></div>
-        <div className="stat-card"><div className="text-xs text-muted-foreground">Bu hafta</div><div className="text-xl font-semibold mt-1">{total.toLocaleString("ru-RU").split(",").join(" ")} so'm</div></div>
+        <div className="stat-card"><div className="text-xs text-muted-foreground">Bu hafta</div><div className="text-xl font-semibold mt-1">{formatNumber(total)} so'm</div></div>
         <div className="stat-card"><div className="text-xs text-muted-foreground">Bu oy</div><div className="text-xl font-semibold mt-1">214 800 000 so'm</div></div>
       </div>
       <div className="rounded-xl border bg-card overflow-hidden">
