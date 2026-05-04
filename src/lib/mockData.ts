@@ -80,13 +80,23 @@ export const products: Product[] = [
   { id: 8, name: "Salfetka import 30-li", branch: "tm", unit: "upak", stock: 88, min: 60, price: "42 000", status: "bo'sh" },
 ];
 
-export const rawMaterials = [
-  { id: 1, name: "Sellyuloza 365kun", branch: "ich" as Branch, unit: "kg", stock: 124, min: 200, price: "8 200" },
-  { id: 2, name: "Etiketka A4", branch: "ich" as Branch, unit: "dona", stock: 1820, min: 3000, price: "180" },
-  { id: 3, name: "Klej PVA", branch: "ich" as Branch, unit: "litre", stock: 84, min: 50, price: "14 500" },
-  { id: 4, name: "Korobka 1000gr", branch: "wl" as Branch, unit: "dona", stock: 340, min: 500, price: "1 200" },
-  { id: 5, name: "Selofan rulon", branch: "wl" as Branch, unit: "kg", stock: 220, min: 100, price: "9 800" },
-  { id: 6, name: "Etiketka WL", branch: "wl" as Branch, unit: "dona", stock: 5400, min: 2000, price: "320" },
+export interface RawMaterial {
+  id: number;
+  name: string;
+  branch: Branch;
+  unit: string;
+  stock: number;
+  min: number;
+  price: string;
+}
+
+export const rawMaterials: RawMaterial[] = [
+  { id: 1, name: "Sellyuloza 365kun", branch: "ich", unit: "kg", stock: 124, min: 200, price: "8 200" },
+  { id: 2, name: "Etiketka A4", branch: "ich", unit: "dona", stock: 1820, min: 3000, price: "180" },
+  { id: 3, name: "Klej PVA", branch: "ich", unit: "litre", stock: 84, min: 50, price: "14 500" },
+  { id: 4, name: "Korobka 1000gr", branch: "wl", unit: "dona", stock: 340, min: 500, price: "1 200" },
+  { id: 5, name: "Selofan rulon", branch: "wl", unit: "kg", stock: 220, min: 100, price: "9 800" },
+  { id: 6, name: "Etiketka WL", branch: "wl", unit: "dona", stock: 5400, min: 2000, price: "320" },
 ];
 
 export const shops = [
