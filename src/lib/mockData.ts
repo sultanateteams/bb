@@ -127,18 +127,33 @@ export const dealers = [
 ];
 
 export const expenses = [
-  { id: 1, date: "28.04.2026", type: "Xomashiyo (ICH)", note: "Sellyuloza import 500kg", amount: "4 100 000", user: "Admin" },
-  { id: 2, date: "28.04.2026", type: "WL xizmat haqi", note: "Gel 1000gr — 200 dona", amount: "2 800 000", user: "Operator" },
-  { id: 3, date: "27.04.2026", type: "Maosh", note: "Aprel 2-yarmi", amount: "32 500 000", user: "Admin" },
-  { id: 4, date: "27.04.2026", type: "Yoqilg'i", note: "Yetkazib berish", amount: "1 240 000", user: "Operator" },
-  { id: 5, date: "26.04.2026", type: "Ijara", note: "Asosiy ombor", amount: "8 000 000", user: "Admin" },
+  { id: 1, date: "28.04.2026", typeId: 1, type: "Xomashiyo (ICH)", description: "Sellyuloza import 500kg", amount: "4 100 000", createdBy: "Admin" },
+  { id: 2, date: "28.04.2026", typeId: 3, type: "WL xizmat haqi", description: "Gel 1000gr — 200 dona", amount: "2 800 000", createdBy: "Operator" },
+  { id: 3, date: "27.04.2026", typeId: 5, type: "Oyliklar", description: "Aprel 2-yarmi", amount: "32 500 000", createdBy: "Admin" },
+  { id: 4, date: "27.04.2026", typeId: 8, type: "Transport yoqilg'i", description: "Yetkazib berish", amount: "1 240 000", createdBy: "Operator" },
+  { id: 5, date: "26.04.2026", typeId: 12, type: "Boshqa", description: "Asosiy ombor ijara", amount: "8 000 000", createdBy: "Admin" },
+];
+
+export const expenseTypes = [
+  { id: 1, name: "Xomashiyo (ICH)", description: "Avtomatik", isAutomatic: true },
+  { id: 2, name: "Xomashiyo (WL)", description: "Avtomatik", isAutomatic: true },
+  { id: 3, name: "WL xizmat haqi", description: "Avtomatik", isAutomatic: true },
+  { id: 4, name: "TM kirim", description: "Avtomatik", isAutomatic: true },
+  { id: 5, name: "Oyliklar", description: "", isAutomatic: false },
+  { id: 6, name: "Premiya", description: "", isAutomatic: false },
+  { id: 7, name: "Transport remont", description: "", isAutomatic: false },
+  { id: 8, name: "Transport yoqilg'i", description: "", isAutomatic: false },
+  { id: 9, name: "Agent oyligi", description: "", isAutomatic: false },
+  { id: 10, name: "ICH texnik xarajat", description: "", isAutomatic: false },
+  { id: 11, name: "WL texnik xarajat", description: "", isAutomatic: false },
+  { id: 12, name: "Boshqa", description: "", isAutomatic: false },
 ];
 
 export const incomes = [
-  { id: 1, date: "28.04.2026", source: "Olma Market", note: "Buyurtma B-2041 to'lovi", amount: "12 400 000", method: "Bank" },
-  { id: 2, date: "28.04.2026", source: "Diyor Plus", note: "Buyurtma B-2039 to'lovi", amount: "21 100 000", method: "Naqd" },
-  { id: 3, date: "27.04.2026", source: "Saodat Mart", note: "Qisman to'lov", amount: "10 000 000", method: "Bank" },
-  { id: 4, date: "27.04.2026", source: "Astatka sotuv", note: "Makulatura 1.2t", amount: "1 800 000", method: "Naqd" },
+  { id: 1, date: "28.04.2026", type: "order_payment" as const, orderId: "B-2041", amount: "12 400 000", paymentMethod: "transfer" as const, receivedBy: "Admin", note: "Olma Market to'lovi" },
+  { id: 2, date: "28.04.2026", type: "order_payment" as const, orderId: "B-2039", amount: "21 100 000", paymentMethod: "cash" as const, receivedBy: "Admin", note: "Diyor Plus to'lovi" },
+  { id: 3, date: "27.04.2026", type: "order_payment" as const, orderId: "B-2040", amount: "10 000 000", paymentMethod: "transfer" as const, receivedBy: "Operator", note: "Qisman to'lov" },
+  { id: 4, date: "27.04.2026", type: "scrap" as const, amount: "1 800 000", paymentMethod: "cash" as const, receivedBy: "Admin", note: "Makulatura 1.2t" },
 ];
 
 export interface IchBatch {

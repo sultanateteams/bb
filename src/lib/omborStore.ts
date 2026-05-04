@@ -4,6 +4,7 @@ import {
   products as seedProducts,
   rawMaterials as seedRaw,
   expenses as seedExpenses,
+  expenseTypes as seedExpenseTypes,
   incomes as seedIncomes,
   wlOps as seedWlOps,
   rawImportHistory as seedHistory,
@@ -33,19 +34,29 @@ import { formatNumber, parseNumber, todayUz } from "./utils";
 interface ExpenseRow {
   id: number;
   date: string;
+  typeId: number;
   type: string;
-  note: string;
   amount: string;
-  user: string;
+  description: string;
+  createdBy: string;
+}
+
+interface ExpenseType {
+  id: number;
+  name: string;
+  description?: string;
+  isAutomatic: boolean;
 }
 
 interface IncomeRow {
   id: number;
   date: string;
-  source: string;
-  note: string;
+  type: 'order_payment' | 'scrap' | 'other';
+  orderId?: string;
   amount: string;
-  method: string;
+  paymentMethod: 'cash' | 'card' | 'transfer';
+  receivedBy: string;
+  note?: string;
 }
 
 interface State {
@@ -53,6 +64,7 @@ interface State {
   raw: RawMaterial[];
   wlOps: WlOp[];
   expenses: ExpenseRow[];
+  expenseTypes: ExpenseType[];
   incomes: IncomeRow[];
   history: RawImportRecord[];
   ichBatches: IchBatch[];
@@ -66,6 +78,7 @@ let state: State = {
   raw: [...seedRaw.map((r) => ({ ...r })), ...ichExtraRawMaterials.map((r) => ({ ...r }))],
   wlOps: seedWlOps.map((w) => ({ ...w })),
   expenses: seedExpenses.map((e) => ({ ...e })),
+  expenseTypes: seedExpenseTypes.map((t) => ({ ...t })),
   incomes: seedIncomes.map((e) => ({ ...e })),
   history: seedHistory.map((h) => ({ ...h })),
   ichBatches: seedBatches.map((b) => ({ ...b })),
@@ -94,34 +107,38 @@ export function useOmborStore<T>(selector: (s: State) => T): T {
 
 let nextExpenseId = Math.max(0, ...state.expenses.map((e) => e.id)) + 1;
 let nextIncomeId = Math.max(0, ...state.incomes.map((e) => e.id)) + 1;
+let nextExpenseTypeId = Math.max(0, ...state.expenseTypes.map((t) => t.id)) + 1;
 let nextHistoryId = Math.max(0, ...state.history.map((h) => h.id)) + 1;
 let nextAstatkaId = Math.max(0, ...state.astatka.map((a) => a.id)) + 1;
 let nextIchRawId = Math.max(0, ...state.ichRaw.map((r) => r.id)) + 1;
 let nextBatchNum = 319;
 
-function addExpense(type: string, note: string, amount: number) {
+function addExpense(typeId: number, type: string, description: string, amount: number) {
   state.expenses = [
     {
       id: nextExpenseId++,
       date: todayUz(),
+      typeId,
       type,
-      note,
+      description,
       amount: formatNumber(amount),
-      user: "Admin",
+      createdBy: "Admin",
     },
     ...state.expenses,
   ];
 }
 
-function addIncome(source: string, note: string, amount: number, method = "Naqd") {
+function addIncome(type: 'order_payment' | 'scrap' | 'other', amount: number, paymentMethod: 'cash' | 'card' | 'transfer' = 'cash', receivedBy: string = 'Admin', orderId?: string, note?: string) {
   state.incomes = [
     {
       id: nextIncomeId++,
       date: todayUz(),
-      source,
-      note,
+      type,
+      orderId,
       amount: formatNumber(amount),
-      method,
+      paymentMethod,
+      receivedBy,
+      note,
     },
     ...state.incomes,
   ];
@@ -423,5 +440,91 @@ export function addOrderReturn(input: ReturnInput) {
       p.id === input.productId ? { ...p, stock: p.stock + input.qty } : p,
     );
   }
+  emit();
+}
+
+// ============== Expense Types ==============
+
+export function addExpenseType(name: string, description?: string): ExpenseType {
+  const newType: ExpenseType = {
+    id: nextExpenseTypeId++,
+    name,
+    description,
+    isAutomatic: false,
+  };
+  state.expenseTypes = [...state.expenseTypes, newType];
+  emit();
+  return newType;
+}
+
+export function updateExpenseType(id: number, name: string, description?: string) {
+  state.expenseTypes = state.expenseTypes.map((t) =>
+    t.id === id && !t.isAutomatic ? { ...t, name, description } : t,
+  );
+  emit();
+}
+
+export function deleteExpenseType(id: number) {
+  const type = state.expenseTypes.find((t) => t.id === id);
+  if (!type || type.isAutomatic) return;
+  state.expenseTypes = state.expenseTypes.filter((t) => t.id !== id);
+  state.expenses = state.expenses.filter((e) => e.typeId !== id);
+  emit();
+}
+
+// ============== Income Management ==============
+
+export interface AddIncomeInput {
+  type: 'order_payment' | 'scrap' | 'other';
+  amount: number;
+  paymentMethod: 'cash' | 'card' | 'transfer';
+  receivedBy: string;
+  orderId?: string;
+  note?: string;
+  date?: string;
+}
+
+export function addNewIncome(input: AddIncomeInput) {
+  state.incomes = [
+    {
+      id: nextIncomeId++,
+      date: input.date || todayUz(),
+      type: input.type,
+      orderId: input.orderId,
+      amount: formatNumber(input.amount),
+      paymentMethod: input.paymentMethod,
+      receivedBy: input.receivedBy,
+      note: input.note,
+    },
+    ...state.incomes,
+  ];
+  emit();
+}
+
+// ============== Expense Management ==============
+
+export interface AddExpenseInput {
+  typeId: number;
+  amount: number;
+  description: string;
+  createdBy: string;
+  date?: string;
+}
+
+export function addNewExpense(input: AddExpenseInput) {
+  const type = state.expenseTypes.find((t) => t.id === input.typeId);
+  if (!type) return;
+  state.expenses = [
+    {
+      id: nextExpenseId++,
+      date: input.date || todayUz(),
+      typeId: input.typeId,
+      type: type.name,
+      description: input.description,
+      amount: formatNumber(input.amount),
+      createdBy: input.createdBy,
+    },
+    ...state.expenses,
+  ];
   emit();
 }
