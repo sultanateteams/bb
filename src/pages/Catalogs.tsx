@@ -1,8 +1,10 @@
 import { PageHeader } from "@/components/PageHeader";
 import { BranchBadge } from "@/components/Badges";
 import { products, rawMaterials } from "@/lib/mockData";
+import { MahsulotTurlari as MahsulotTurlariPage } from "./MahsulotTurlari/MahsulotTurlariPage";
 
 export function MahsulotTurlari() {
+  return <MahsulotTurlariPage />;
   return (
     <div className="space-y-6">
       <PageHeader title="Mahsulot turlari" subtitle="ICH, WL, TM mahsulotlar katalogi" showAdd addLabel="Mahsulot qo'shish" />
