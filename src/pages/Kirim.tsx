@@ -1,5 +1,5 @@
 import { PageHeader } from "@/components/PageHeader";
-import { incomes } from "@/lib/mockData";
+import { useOmborStore } from "@/lib/omborStore";
 
 export default function Kirim() {
   return (
