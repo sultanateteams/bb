@@ -56,15 +56,28 @@ export const recentOrders = [
   { id: "B-2037", shop: "Saodat Mart", agent: "S. Yusupov", total: "15 600 000", status: "Tayyor", paid: true },
 ];
 
-export const products = [
-  { id: 1, name: "Salfetka 365 (24)", branch: "ich" as Branch, unit: "dona", stock: 1240, min: 500, price: "9 500" },
-  { id: 2, name: "Tualet qog'ozi 12-li", branch: "ich" as Branch, unit: "upak", stock: 380, min: 200, price: "22 000" },
-  { id: 3, name: "Salfetka mini", branch: "ich" as Branch, unit: "dona", stock: 4820, min: 1000, price: "3 200" },
-  { id: 4, name: "Gel 1000gr", branch: "wl" as Branch, unit: "dona", stock: 612, min: 300, price: "31 500" },
-  { id: 5, name: "Suyuq sovun 500ml", branch: "wl" as Branch, unit: "dona", stock: 980, min: 400, price: "18 700" },
-  { id: 6, name: "Poroshok 900g", branch: "wl" as Branch, unit: "dona", stock: 240, min: 300, price: "27 800" },
-  { id: 7, name: "Pampers Premium L", branch: "tm" as Branch, unit: "upak", stock: 12, min: 50, price: "138 000" },
-  { id: 8, name: "Salfetka import 30-li", branch: "tm" as Branch, unit: "upak", stock: 88, min: 60, price: "42 000" },
+export type ProductStatus = "bo'sh" | "band";
+
+export interface Product {
+  id: number;
+  name: string;
+  branch: Branch;
+  unit: string;
+  stock: number;
+  min: number;
+  price: string;
+  status: ProductStatus;
+}
+
+export const products: Product[] = [
+  { id: 1, name: "Salfetka 365 (24)", branch: "ich", unit: "dona", stock: 1240, min: 500, price: "9 500", status: "bo'sh" },
+  { id: 2, name: "Tualet qog'ozi 12-li", branch: "ich", unit: "upak", stock: 380, min: 200, price: "22 000", status: "band" },
+  { id: 3, name: "Salfetka mini", branch: "ich", unit: "dona", stock: 4820, min: 1000, price: "3 200", status: "bo'sh" },
+  { id: 4, name: "Gel 1000gr", branch: "wl", unit: "dona", stock: 612, min: 300, price: "31 500", status: "bo'sh" },
+  { id: 5, name: "Suyuq sovun 500ml", branch: "wl", unit: "dona", stock: 980, min: 400, price: "18 700", status: "band" },
+  { id: 6, name: "Poroshok 900g", branch: "wl", unit: "dona", stock: 240, min: 300, price: "27 800", status: "bo'sh" },
+  { id: 7, name: "Pampers Premium L", branch: "tm", unit: "upak", stock: 12, min: 50, price: "138 000", status: "bo'sh" },
+  { id: 8, name: "Salfetka import 30-li", branch: "tm", unit: "upak", stock: 88, min: 60, price: "42 000", status: "bo'sh" },
 ];
 
 export const rawMaterials = [
