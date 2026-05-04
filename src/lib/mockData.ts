@@ -194,6 +194,21 @@ export const bom: Record<number, BomLine[]> = {
     { materialId: 1, name: "Sellyuloza", unit: "kg", perUnit: 0.005 },
     { materialId: 2, name: "Etiketka A4", unit: "dona", perUnit: 0.0005 },
   ],
+  4: [ // Gel 1000gr
+    { materialId: 4, name: "Korobka 1000gr", unit: "dona", perUnit: 1 },
+    { materialId: 6, name: "Etiketka WL", unit: "dona", perUnit: 1 },
+    { materialId: 5, name: "Selofan rulon", unit: "kg", perUnit: 0.05 },
+  ],
+  5: [ // Suyuq sovun 500ml
+    { materialId: 4, name: "Korobka 1000gr", unit: "dona", perUnit: 1 },
+    { materialId: 6, name: "Etiketka WL", unit: "dona", perUnit: 1 },
+    { materialId: 5, name: "Selofan rulon", unit: "kg", perUnit: 0.02 },
+  ],
+  6: [ // Poroshok 900g
+    { materialId: 4, name: "Korobka 1000gr", unit: "dona", perUnit: 1 },
+    { materialId: 6, name: "Etiketka WL", unit: "dona", perUnit: 1 },
+    { materialId: 5, name: "Selofan rulon", unit: "kg", perUnit: 0.1 },
+  ],
 };
 
 export type AstatkaStatus = "Omborida" | "Makulaturaga chiqarilgan";
@@ -224,13 +239,17 @@ export interface WlOp {
   factory: string;
   status: WlStatus;
   cost: string;
+  receivedQuantity?: number;
+  extraQuantity?: number;
+  materials?: { name: string; quantity: number; unit: string; price: number; total: number }[];
+  serviceCharge?: number;
 }
 
 export const wlOps: WlOp[] = [
   { id: "WL-104", date: "28.04.2026", product: "Gel 1000gr", productId: 4, qty: 200, factory: "Zavod-A", status: "Ishlab chiqarishdagi", cost: "8 400 000" },
   { id: "WL-105", date: "27.04.2026", product: "Poroshok 900g", productId: 6, qty: 150, factory: "Zavod-A", status: "Ishlab chiqarishdagi", cost: "5 200 000" },
-  { id: "WL-103", date: "26.04.2026", product: "Suyuq sovun 500ml", productId: 5, qty: 350, factory: "Zavod-B", status: "Ishlab chiqarilgan", cost: "9 100 000" },
-  { id: "WL-102", date: "24.04.2026", product: "Poroshok 900g", productId: 6, qty: 180, factory: "Zavod-A", status: "Ishlab chiqarilgan", cost: "6 240 000" },
+  { id: "WL-103", date: "26.04.2026", product: "Suyuq sovun 500ml", productId: 5, qty: 350, factory: "Zavod-B", status: "Ishlab chiqarilgan", cost: "9 100 000", receivedQuantity: 360, extraQuantity: 10 },
+  { id: "WL-102", date: "24.04.2026", product: "Poroshok 900g", productId: 6, qty: 180, factory: "Zavod-A", status: "Ishlab chiqarilgan", cost: "6 240 000", receivedQuantity: 180 },
 ];
 
 export interface RawImportRecord {

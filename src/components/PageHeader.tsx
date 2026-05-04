@@ -9,9 +9,10 @@ interface PageHeaderProps {
   showAdd?: boolean;
   showExport?: boolean;
   addLabel?: string;
+  onAdd?: () => void;
 }
 
-export function PageHeader({ title, subtitle, actions, showAdd, showExport, addLabel = "Qo'shish" }: PageHeaderProps) {
+export function PageHeader({ title, subtitle, actions, showAdd, showExport, addLabel = "Qo'shish", onAdd }: PageHeaderProps) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-6">
       <div>
@@ -26,7 +27,7 @@ export function PageHeader({ title, subtitle, actions, showAdd, showExport, addL
           </Button>
         )}
         {showAdd && (
-          <Button size="sm" className="gap-2 bg-gradient-brand hover:opacity-90">
+          <Button size="sm" className="gap-2 bg-gradient-brand hover:opacity-90" onClick={onAdd}>
             <Plus className="h-4 w-4" /> {addLabel}
           </Button>
         )}
