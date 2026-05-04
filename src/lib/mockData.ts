@@ -246,6 +246,97 @@ export interface RawImportRecord {
   date: string;
 }
 
+export const regions = ["Toshkent", "Samarqand", "Buxoro", "Andijon", "Farg'ona", "Namangan"];
+
+export type OrderPayStatus = "To'langan" | "Qisman to'langan" | "To'lanmagan";
+export interface OrderItem {
+  productId: number;
+  name: string;
+  unit: string;
+  qty: number;
+  price: number; // dona narxi
+  returned?: number;
+}
+export interface OrderPayment {
+  id: number;
+  date: string;
+  amount: number;
+  method: string;
+  user: string;
+}
+export interface OrderReturn {
+  id: number;
+  date: string;
+  productId: number;
+  name: string;
+  qty: number;
+  reason: string;
+  note?: string;
+}
+export interface Order {
+  id: string;
+  date: string;
+  shopId: number;
+  shop: string;
+  region: string;
+  agentId: number;
+  agent: string;
+  items: OrderItem[];
+  total: number;
+  paid: number;
+  status: OrderPayStatus;
+  payments: OrderPayment[];
+  returns: OrderReturn[];
+}
+
+export const ordersSeed: Order[] = [
+  {
+    id: "B-2041", date: "28.04.2026", shopId: 1, shop: "Olma Market", region: "Toshkent",
+    agentId: 1, agent: "B. Karimov",
+    items: [{ productId: 1, name: "Salfetka 365 (24)", unit: "dona", qty: 800, price: 9500 }, { productId: 2, name: "Tualet qog'ozi 12-li", unit: "upak", qty: 220, price: 22000 }],
+    total: 12_400_000, paid: 12_400_000, status: "To'langan",
+    payments: [{ id: 1, date: "28.04.2026", amount: 12_400_000, method: "Bank", user: "Admin" }], returns: [],
+  },
+  {
+    id: "B-2040", date: "28.04.2026", shopId: 2, shop: "Hilola Savdo", region: "Samarqand",
+    agentId: 2, agent: "S. Yusupov",
+    items: [{ productId: 4, name: "Gel 1000gr", unit: "dona", qty: 200, price: 31500 }, { productId: 5, name: "Suyuq sovun 500ml", unit: "dona", qty: 130, price: 18700 }],
+    total: 8_750_000, paid: 0, status: "To'lanmagan", payments: [], returns: [],
+  },
+  {
+    id: "B-2039", date: "27.04.2026", shopId: 3, shop: "Diyor Plus", region: "Buxoro",
+    agentId: 1, agent: "B. Karimov",
+    items: [{ productId: 7, name: "Pampers Premium L", unit: "upak", qty: 120, price: 138000 }, { productId: 8, name: "Salfetka import 30-li", unit: "upak", qty: 110, price: 42000 }],
+    total: 21_100_000, paid: 21_100_000, status: "To'langan",
+    payments: [{ id: 1, date: "27.04.2026", amount: 21_100_000, method: "Naqd", user: "Admin" }], returns: [],
+  },
+  {
+    id: "B-2042", date: "29.04.2026", shopId: 4, shop: "Anvar Do'kon", region: "Toshkent",
+    agentId: 2, agent: "S. Yusupov",
+    items: [{ productId: 3, name: "Salfetka mini", unit: "dona", qty: 2000, price: 3250 }],
+    total: 6_500_000, paid: 0, status: "To'lanmagan", payments: [], returns: [],
+  },
+  {
+    id: "B-2043", date: "29.04.2026", shopId: 2, shop: "Nargiza Savdo", region: "Samarqand",
+    agentId: 1, agent: "B. Karimov",
+    items: [{ productId: 4, name: "Gel 1000gr", unit: "dona", qty: 292, price: 31500 }],
+    total: 9_200_000, paid: 4_000_000, status: "Qisman to'langan",
+    payments: [{ id: 1, date: "29.04.2026", amount: 4_000_000, method: "Plastik", user: "Admin" }], returns: [],
+  },
+];
+
+export const returnReasons = [
+  { value: "rejected", label: "Mijoz rad etdi", info: "⚠️ Ombor qaytariladi. Agent foizi qayta hisoblanadi" },
+  { value: "defective", label: "Tovar yaroqsiz (nuqson)", info: "ℹ️ Ombor qaytarilmaydi. Agent foizi saqlanadi" },
+  { value: "transport", label: "Transport muammosi", info: "⚠️ Ombor qaytariladi. Agent foizi saqlanadi" },
+  { value: "shortage", label: "Omborda yetishmaslik", info: "ℹ️ Qisman bajarildi deb belgilanadi" },
+  { value: "expired", label: "Muddati o'tgan", info: "ℹ️ Ombor qaytarilmaydi" },
+];
+
+export function returnsRestockStock(reason: string): boolean {
+  return reason === "rejected" || reason === "transport";
+}
+
 export const rawImportHistory: RawImportRecord[] = [
   { id: 1, materialId: 1, name: "Sellyuloza 365kun", branch: "ich", qty: 500, unit: "kg", price: "8 200", total: "4 100 000", note: "Sherzod Trade — invoys #4421", date: "28.04.2026" },
   { id: 2, materialId: 4, name: "Korobka 1000gr", branch: "wl", qty: 1000, unit: "dona", price: "1 200", total: "1 200 000", note: "Box-Pro MChJ", date: "26.04.2026" },

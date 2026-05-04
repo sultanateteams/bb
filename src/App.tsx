@@ -10,6 +10,7 @@ import OmborImportTarixi from "./pages/OmborImportTarixi";
 import ICH from "./pages/ICH";
 import WL from "./pages/WL";
 import Buyurtma from "./pages/Buyurtma";
+import BuyurtmaDetail from "./pages/BuyurtmaDetail";
 import Chiqim from "./pages/Chiqim";
 import Kirim from "./pages/Kirim";
 import { MahsulotTurlari, XomashiyoTurlari } from "./pages/Catalogs";
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/ich" element={<ICH />} />
             <Route path="/wl" element={<WL />} />
             <Route path="/buyurtma" element={<Buyurtma />} />
+            <Route path="/buyurtma/:id" element={<BuyurtmaDetail />} />
             <Route path="/kirim" element={<Kirim />} />
             <Route path="/chiqim" element={<Chiqim />} />
             <Route path="/mahsulot-turlari" element={<MahsulotTurlari />} />

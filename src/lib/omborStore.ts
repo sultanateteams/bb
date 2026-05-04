@@ -20,6 +20,13 @@ import {
   type IchRawStock,
   type AstatkaItem,
   type Branch,
+  ordersSeed,
+  returnsRestockStock,
+  type Order,
+  type OrderItem,
+  type OrderPayStatus,
+  type OrderPayment,
+  type OrderReturn,
 } from "./mockData";
 import { formatNumber, parseNumber, todayUz } from "./utils";
 
@@ -51,6 +58,7 @@ interface State {
   ichBatches: IchBatch[];
   ichRaw: IchRawStock[];
   astatka: AstatkaItem[];
+  orders: Order[];
 }
 
 let state: State = {
@@ -63,6 +71,7 @@ let state: State = {
   ichBatches: seedBatches.map((b) => ({ ...b })),
   ichRaw: ichRawStockSeed.map((r) => ({ ...r })),
   astatka: astatkaSeed.map((a) => ({ ...a })),
+  orders: ordersSeed.map((o) => ({ ...o, items: o.items.map(i => ({ ...i })), payments: [...o.payments], returns: [...o.returns] })),
 };
 
 const listeners = new Set<() => void>();
@@ -295,5 +304,124 @@ export function discardToMakulatura(ids: number[], price: number, note?: string)
   );
   const desc = items.map((i) => `${i.name} (${i.qty} ${i.unit})`).join(", ");
   addIncome("Makulatura", note ? `${desc} — ${note}` : desc, price, "Naqd");
+  emit();
+}
+
+// ============== Buyurtma actions ==============
+
+function calcStatus(total: number, paid: number): OrderPayStatus {
+  if (paid <= 0) return "To'lanmagan";
+  if (paid >= total) return "To'langan";
+  return "Qisman to'langan";
+}
+
+export function nextOrderId(): string {
+  const nums = state.orders
+    .map((o) => Number(o.id.replace(/[^\d]/g, "")))
+    .filter((n) => Number.isFinite(n));
+  const next = (nums.length ? Math.max(...nums) : 2040) + 1;
+  return `B-${next}`;
+}
+
+export interface CreateOrderInput {
+  id: string;
+  date: string;
+  shopId: number;
+  shop: string;
+  region: string;
+  agentId: number;
+  agent: string;
+  items: OrderItem[];
+  paid: number;
+  method: string;
+}
+
+export function createOrder(input: CreateOrderInput) {
+  const total = input.items.reduce((s, i) => s + i.qty * i.price, 0);
+  const status = calcStatus(total, input.paid);
+  const payments: OrderPayment[] = input.paid > 0
+    ? [{ id: 1, date: input.date, amount: input.paid, method: input.method, user: "Admin" }]
+    : [];
+  const order: Order = {
+    id: input.id, date: input.date, shopId: input.shopId, shop: input.shop, region: input.region,
+    agentId: input.agentId, agent: input.agent, items: input.items, total, paid: input.paid,
+    status, payments, returns: [],
+  };
+  state.orders = [order, ...state.orders];
+  // ombordan ayirish
+  state.products = state.products.map((p) => {
+    const it = input.items.find((i) => i.productId === p.id);
+    return it ? { ...p, stock: Math.max(0, p.stock - it.qty) } : p;
+  });
+  if (input.paid > 0) {
+    addIncome(input.shop, `Buyurtma ${input.id} to'lovi`, input.paid, input.method);
+  }
+  emit();
+  return order;
+}
+
+export function addOrderPayment(orderId: string, amount: number, method: string) {
+  const o = state.orders.find((x) => x.id === orderId);
+  if (!o) return;
+  const remain = o.total - o.paid;
+  const amt = Math.min(amount, remain);
+  if (amt <= 0) return;
+  const newPaid = o.paid + amt;
+  const pay: OrderPayment = {
+    id: (o.payments.at(-1)?.id ?? 0) + 1,
+    date: todayUz(), amount: amt, method, user: "Admin",
+  };
+  state.orders = state.orders.map((x) =>
+    x.id === orderId
+      ? { ...x, paid: newPaid, status: calcStatus(x.total, newPaid), payments: [...x.payments, pay] }
+      : x,
+  );
+  addIncome(o.shop, `Buyurtma ${o.id} to'lovi`, amt, method);
+  emit();
+}
+
+export function setOrderStatus(orderId: string, status: OrderPayStatus) {
+  state.orders = state.orders.map((x) => (x.id === orderId ? { ...x, status } : x));
+  emit();
+}
+
+export interface ReturnInput {
+  orderId: string;
+  productId: number;
+  qty: number;
+  reason: string;
+  reasonLabel: string;
+  note?: string;
+}
+export function addOrderReturn(input: ReturnInput) {
+  const o = state.orders.find((x) => x.id === input.orderId);
+  if (!o) return;
+  const item = o.items.find((i) => i.productId === input.productId);
+  if (!item) return;
+  const ret: OrderReturn = {
+    id: (o.returns.at(-1)?.id ?? 0) + 1,
+    date: todayUz(),
+    productId: input.productId,
+    name: item.name,
+    qty: input.qty,
+    reason: input.reasonLabel,
+    note: input.note,
+  };
+  state.orders = state.orders.map((x) =>
+    x.id === input.orderId
+      ? {
+          ...x,
+          returns: [...x.returns, ret],
+          items: x.items.map((i) =>
+            i.productId === input.productId ? { ...i, returned: (i.returned ?? 0) + input.qty } : i,
+          ),
+        }
+      : x,
+  );
+  if (returnsRestockStock(input.reason)) {
+    state.products = state.products.map((p) =>
+      p.id === input.productId ? { ...p, stock: p.stock + input.qty } : p,
+    );
+  }
   emit();
 }
