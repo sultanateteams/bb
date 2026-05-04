@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { StatusBadge } from "@/components/Badges";
 import { agents, shops, regions } from "@/lib/mockData";
 import { useOmborStore } from "@/lib/omborStore";
-import { formatNumber, parseNumber } from "@/lib/utils";
+import { formatNumber } from "@/lib/utils";
 import { NewOrderDialog } from "@/components/buyurtma/NewOrderDialog";
 import { Plus, RotateCcw, Download } from "lucide-react";
 
