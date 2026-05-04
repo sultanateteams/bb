@@ -1,7 +1,8 @@
 import { PageHeader } from "@/components/PageHeader";
-import { incomes } from "@/lib/mockData";
+import { useOmborStore } from "@/lib/omborStore";
 
 export default function Kirim() {
+  const incomes = useOmborStore((s) => s.incomes);
   return (
     <div className="space-y-6">
       <PageHeader title="Kirim" subtitle="Buyurtma to'lovlari va boshqa kirimlar" showAdd addLabel="Kirim qo'shish" showExport />

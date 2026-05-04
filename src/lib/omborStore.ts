@@ -4,15 +4,24 @@ import {
   products as seedProducts,
   rawMaterials as seedRaw,
   expenses as seedExpenses,
+  incomes as seedIncomes,
   wlOps as seedWlOps,
   rawImportHistory as seedHistory,
+  ichBatches as seedBatches,
+  ichRawStockSeed,
+  astatkaSeed,
+  ichExtraRawMaterials,
+  bom,
   type Product,
   type RawMaterial,
   type WlOp,
   type RawImportRecord,
+  type IchBatch,
+  type IchRawStock,
+  type AstatkaItem,
   type Branch,
 } from "./mockData";
-import { formatNumber, todayUz } from "./utils";
+import { formatNumber, parseNumber, todayUz } from "./utils";
 
 interface ExpenseRow {
   id: number;
@@ -23,20 +32,37 @@ interface ExpenseRow {
   user: string;
 }
 
+interface IncomeRow {
+  id: number;
+  date: string;
+  source: string;
+  note: string;
+  amount: string;
+  method: string;
+}
+
 interface State {
   products: Product[];
   raw: RawMaterial[];
   wlOps: WlOp[];
   expenses: ExpenseRow[];
+  incomes: IncomeRow[];
   history: RawImportRecord[];
+  ichBatches: IchBatch[];
+  ichRaw: IchRawStock[];
+  astatka: AstatkaItem[];
 }
 
 let state: State = {
   products: seedProducts.map((p) => ({ ...p })),
-  raw: seedRaw.map((r) => ({ ...r })),
+  raw: [...seedRaw.map((r) => ({ ...r })), ...ichExtraRawMaterials.map((r) => ({ ...r }))],
   wlOps: seedWlOps.map((w) => ({ ...w })),
   expenses: seedExpenses.map((e) => ({ ...e })),
+  incomes: seedIncomes.map((e) => ({ ...e })),
   history: seedHistory.map((h) => ({ ...h })),
+  ichBatches: seedBatches.map((b) => ({ ...b })),
+  ichRaw: ichRawStockSeed.map((r) => ({ ...r })),
+  astatka: astatkaSeed.map((a) => ({ ...a })),
 };
 
 const listeners = new Set<() => void>();
@@ -58,7 +84,11 @@ export function useOmborStore<T>(selector: (s: State) => T): T {
 }
 
 let nextExpenseId = Math.max(0, ...state.expenses.map((e) => e.id)) + 1;
+let nextIncomeId = Math.max(0, ...state.incomes.map((e) => e.id)) + 1;
 let nextHistoryId = Math.max(0, ...state.history.map((h) => h.id)) + 1;
+let nextAstatkaId = Math.max(0, ...state.astatka.map((a) => a.id)) + 1;
+let nextIchRawId = Math.max(0, ...state.ichRaw.map((r) => r.id)) + 1;
+let nextBatchNum = 319;
 
 function addExpense(type: string, note: string, amount: number) {
   state.expenses = [
@@ -74,10 +104,24 @@ function addExpense(type: string, note: string, amount: number) {
   ];
 }
 
+function addIncome(source: string, note: string, amount: number, method = "Naqd") {
+  state.incomes = [
+    {
+      id: nextIncomeId++,
+      date: todayUz(),
+      source,
+      note,
+      amount: formatNumber(amount),
+      method,
+    },
+    ...state.incomes,
+  ];
+}
+
 export interface TmAddItem {
   productId: number;
   qty: number;
-  price: number; // per unit
+  price: number;
   note?: string;
 }
 
@@ -125,7 +169,7 @@ export function importRaw(input: RawImportInput) {
   const mat = state.raw.find((r) => r.id === input.materialId);
   if (!mat) return;
   const oldStock = mat.stock;
-  const oldPrice = Number(mat.price.replace(/\s/g, "")) || 0;
+  const oldPrice = parseNumber(mat.price);
   const newStock = oldStock + input.qty;
   const avgPrice =
     newStock > 0 ? (oldStock * oldPrice + input.qty * input.price) / newStock : input.price;
@@ -157,5 +201,99 @@ export function importRaw(input: RawImportInput) {
     `${mat.name} — ${input.qty} ${mat.unit}`,
     total,
   );
+  emit();
+}
+
+// ============== ICH actions ==============
+
+export function transferRawToIch(materialId: number, qty: number) {
+  const mat = state.raw.find((r) => r.id === materialId);
+  if (!mat || qty <= 0 || qty > mat.stock) return;
+  state.raw = state.raw.map((r) =>
+    r.id === materialId ? { ...r, stock: r.stock - qty } : r,
+  );
+  const existing = state.ichRaw.find((r) => r.materialId === materialId);
+  if (existing) {
+    state.ichRaw = state.ichRaw.map((r) =>
+      r.materialId === materialId ? { ...r, stock: r.stock + qty } : r,
+    );
+  } else {
+    state.ichRaw = [
+      ...state.ichRaw,
+      {
+        id: nextIchRawId++,
+        materialId,
+        name: mat.name,
+        unit: mat.unit,
+        stock: qty,
+        min: Math.max(50, Math.round(qty * 0.3)),
+      },
+    ];
+  }
+  emit();
+}
+
+export interface ProduceItem { productId: number; qty: number; }
+export interface BomNeed { materialId: number; name: string; unit: string; need: number; }
+
+export function calcBomNeeds(items: ProduceItem[]): BomNeed[] {
+  const map = new Map<number, BomNeed>();
+  items.forEach(({ productId, qty }) => {
+    const lines = bom[productId];
+    if (!lines || !qty) return;
+    lines.forEach((l) => {
+      const ex = map.get(l.materialId);
+      const add = l.perUnit * qty;
+      if (ex) ex.need += add;
+      else map.set(l.materialId, { materialId: l.materialId, name: l.name, unit: l.unit, need: add });
+    });
+  });
+  return Array.from(map.values());
+}
+
+export function produceIch(items: ProduceItem[], needsOverride: BomNeed[]) {
+  // xomashiyolarni ICH ombordan ayirish
+  state.ichRaw = state.ichRaw.map((r) => {
+    const n = needsOverride.find((x) => x.materialId === r.materialId);
+    return n ? { ...r, stock: Math.max(0, r.stock - n.need) } : r;
+  });
+
+  // mahsulot stock'ini oshirish + tannarx
+  let totalCost = 0;
+  const labels: string[] = [];
+  state.products = state.products.map((p) => {
+    const it = items.find((i) => i.productId === p.id);
+    if (!it) return p;
+    totalCost += it.qty * parseNumber(p.price);
+    labels.push(`${p.name} — ${it.qty} ${p.unit}`);
+    return { ...p, stock: p.stock + it.qty };
+  });
+
+  // partiya yozuvi
+  const id = `P-${nextBatchNum++}`;
+  state.ichBatches = [
+    {
+      id,
+      date: todayUz(),
+      products: labels.join("; "),
+      cost: formatNumber(totalCost),
+      scrap: "—",
+      user: "Operator",
+    },
+    ...state.ichBatches,
+  ];
+  emit();
+}
+
+export function discardToMakulatura(ids: number[], price: number, note?: string) {
+  const items = state.astatka.filter((a) => ids.includes(a.id) && a.status === "Omborida");
+  if (!items.length) return;
+  state.astatka = state.astatka.map((a) =>
+    ids.includes(a.id) && a.status === "Omborida"
+      ? { ...a, status: "Makulaturaga chiqarilgan" }
+      : a,
+  );
+  const desc = items.map((i) => `${i.name} (${i.qty} ${i.unit})`).join(", ");
+  addIncome("Makulatura", note ? `${desc} — ${note}` : desc, price, "Naqd");
   emit();
 }
