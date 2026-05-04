@@ -57,7 +57,7 @@ function ProductsTab({ onTm, onWl }: { onTm: () => void; onWl: () => void }) {
           <SelectContent>
             <SelectItem value="all">Hammasi</SelectItem>
             <SelectItem value="bo'sh">Bo'sh</SelectItem>
-            <SelectItem value="band">Band qilingan</SelectItem>
+            <SelectItem value="band">Band</SelectItem>
           </SelectContent>
         </Select>
         <Select value={branch} onValueChange={(v) => setBranch(v as BranchFilter)}>
