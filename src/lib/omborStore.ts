@@ -58,6 +58,7 @@ interface State {
   ichBatches: IchBatch[];
   ichRaw: IchRawStock[];
   astatka: AstatkaItem[];
+  orders: Order[];
 }
 
 let state: State = {
@@ -70,6 +71,7 @@ let state: State = {
   ichBatches: seedBatches.map((b) => ({ ...b })),
   ichRaw: ichRawStockSeed.map((r) => ({ ...r })),
   astatka: astatkaSeed.map((a) => ({ ...a })),
+  orders: ordersSeed.map((o) => ({ ...o, items: o.items.map(i => ({ ...i })), payments: [...o.payments], returns: [...o.returns] })),
 };
 
 const listeners = new Set<() => void>();
