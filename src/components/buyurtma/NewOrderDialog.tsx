@@ -82,7 +82,7 @@ export function NewOrderDialog({ open, onOpenChange }: { open: boolean; onOpenCh
     if (Object.keys(e).length) return;
     const input: CreateOrderInput = {
       id: orderId,
-      date: new Date(date).toLocaleDateString("ru-RU").replaceAll("/", "."),
+      date: new Date(date).toLocaleDateString("ru-RU").split("/").join("."),
       shopId: shop!.id, shop: shop!.name, region: shop!.region,
       agentId: agent!.id, agent: agent!.name,
       items: rows, paid, method,
