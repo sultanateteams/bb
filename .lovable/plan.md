@@ -1,98 +1,93 @@
-## OMBOR moduli to'liq qurish rejasi
 
-Quyida nima o'zgaradi va nima qo'shiladi.
+# ICH Modulini To'liq Qayta Qurish
 
-### 1. Mock data kengaytirish — `src/lib/mockData.ts`
+## 1. Data layer kengaytmalari
 
-- `Product` ga `status: "bo'sh" | "band"` maydon qo'shamiz (band qilingan = buyurtma uchun rezervlangan).
-- `wlOps` da mavjud `status` dan foydalanamiz: `"Ishlab chiqarishdagi"` va `"Ishlab chiqarilgan"` (mavjud "Qabul kutilmoqda"/"Qabul qilindi" o'rniga, ENV bilan moslashtirilgan).
-- Yangi global modullar (oddiy mutable arrays — backend bo'lmagani uchun runtime state):
-  - `xomashiyoImportHistory: ImportRecord[]` — boshlang'ich 4-5 ta yozuv (ICH/WL aralash, turli sanalar).
-- Helper: `formatNumber(n)` — 9500 → "9 500" (mavjud emas — `src/lib/utils.ts` ga qo'shamiz).
+**`src/lib/mockData.ts`** — yangi tip va seed massivlar qo'shiladi (mavjudlari saqlanadi):
 
-### 2. Yangi global store — `src/lib/omborStore.ts`
+- `IchRawStock` — ICH omboridagi xomashiyo: `{ materialId, name, unit, stock, min }` (4-5 element: Sellyuloza 450 kg, Etiketka A4 1200 dona min 1500, Klej PVA 38 l min 50, Korobka kichik 95 dona min 200).
+- `BomEntry` — `Record<productId, { materialId, name, unit, perUnit }[]>` BOM koeffisiyentlari (Salfetka 365, Tualet qog'ozi 12-li uchun spec'dagi qiymatlar; ICH bo'lmagan "Korobka kichik" yangi materialni `rawMaterials`'ga ham qo'shamiz id=7 ICH).
+- `AstatkaItem` — `{ id, date, name, qty, unit, status: "Omborida"|"Makulaturaga chiqarilgan" }` (4 ta seed yozuv spec bo'yicha).
+- `IncomeRow` interfeysi `incomes` uchun (Kirim store ulanishi uchun).
 
-UI skeletida backend yo'q, lekin modallar haqiqiy ishlasa kerak (zaxira o'zgarishi, chiqim yozuvi, tarix). Bu uchun yengil Zustand-ga o'xshash store yaratamiz, lekin sof React orqali — `useSyncExternalStore` bilan oddiy event-emitter:
+## 2. Store kengaytmasi
 
-- `getProducts()`, `getRawMaterials()`, `getExpenses()`, `getWlOps()`, `getImportHistory()`
-- `addTmStock(items)` — har bir item uchun: stock += qty, expense yozuvi qo'shadi (Chiqim sahifasi shu storedan o'qiydi).
-- `receiveWlBatch(wlId, receivedQty, pricePerUnit)` — WL op statusini "Ishlab chiqarilgan" ga o'zgartiradi, mos product stockini oshiradi, chiqim yozadi.
-- `importRaw({type, materialId, qty, price, note})` — agar mavjud bo'lsa qty qo'shadi va o'rtacha narx hisoblaydi, aks holda yangi qator (yo'q — faqat mavjudlarni yangilaydi UI skeletida), chiqim + import history qo'shadi.
-- `subscribe(fn)` — komponentlar qayta render bo'lishi uchun.
+**`src/lib/omborStore.ts`**'ga qo'shiladi (mavjud logikaga tegmasdan):
 
-Sahifalar (`Ombor`, `Chiqim`) `useSyncExternalStore` orqali store dan o'qiydi. Boshqa sahifalar (Kirim, ICH, WL, Catalogs) o'zgarishsiz qoladi — Chiqim sahifasini ham store ga ulaymiz, shunda real chiqim ko'rinadi.
+- `state.ichRaw: IchRawStock[]`, `state.astatka: AstatkaItem[]`, `state.ichBatches`, `state.incomes` (mockData seed'idan ko'chiriladi).
+- `transferRawToIch({ materialId, qty })` — asosiy `raw` stock'ni kamaytiradi, `ichRaw` stock'ni oshiradi. **Chiqim YARATMAYDI**.
+- `produceIch({ items: [{productId, qty}], scrapItems: [{name, qty, unit}] })`:
+  - Har bir mahsulot uchun BOM bo'yicha `ichRaw` stock'idan kerakli miqdorni ayiradi.
+  - `products` (ICH) stock'ini oshiradi.
+  - `ichBatches` ga yangi qator qo'shadi (Partiya P-XXX, sana, mahsulotlar matni, jami tannarx ICH narxlari asosida, scrap matni, operator).
+  - Ortib qolgan miqdor uchun `astatka` ga avtomatik yozuv (status "Omborida").
+- `discardToMakulatura({ ids: number[], price: number, note?: string })`:
+  - Tanlangan astatka qatorlari status -> "Makulaturaga chiqarilgan".
+  - `incomes` ga yangi yozuv: `source: "Makulatura"`, `note`, `amount: formatNumber(price)`, `method: "Naqd"`, sana = bugun.
+- `useOmborStore` selector kengaytirilgan state'ni o'qiy oladi.
+- `Kirim.tsx` reactive bo'lishi uchun store'dan `incomes`'ni o'qiydi (mavjud `Chiqim.tsx` patterniga o'xshash).
 
-### 3. Ombor sahifasi qayta yozilishi — `src/pages/Ombor.tsx`
+## 3. Yangi modal komponentlar
 
-Yangi tuzilma:
+**`src/components/ich/ImportRawToIchDialog.tsx`**
+- Sarlavha: "ICH Omboriga Xomashiyo O'tkazish"
+- Info banner (muted bg, Info ikon): "Bu ichki ko'chirish — asosiy ombordan ICH omboriga o'tkaziladi. Chiqim yaratilmaydi."
+- Select: faqat `branch === "ich"` xomashiyolar.
+- Read-only field: "Asosiy omborda: {stock} {unit}" tanlanganda avtomatik.
+- Number input "Miqdori" — `qty > asosiyStock` bo'lsa inline xato + Save disabled.
+- Save: `transferRawToIch`, toast success, modal yopiladi.
+
+**`src/components/ich/NewBatchDialog.tsx`**
+- Sarlavha: "ICH — Tayyor Mahsulot Chiqarish", `max-w-2xl`.
+- PART 1: Dinamik massiv `[{productId, qty}]`, "Yana mahsulot qo'shish" tugma, ICH mahsulotlarini Select'da.
+- PART 2: Auto-jadval — har bir item BOM'i bo'yicha xomashiyolarni jamlaydi (bir xil materialId qatorlari yig'iladi). Ustunlar: Xomashiyo nomi, O'lchov, Kerakli miqdor (editable Input), ICH ombordagi qoldiq, Holat badge.
+- Yetishmaslik bo'lsa: Save disabled + warning banner "Yetarlicha xomashiyo yo'q. ICH omborini to'ldiring."
+- Save: `produceIch` chaqiriladi (scrap hozircha bo'sh, kelajakda kengaytiriladigan). Toast.
+
+**`src/components/ich/MakulaturaDialog.tsx`**
+- Bitta yoki ko'p qator uchun (props: `items: AstatkaItem[]`).
+- Read-only ro'yxat: nom — miqdor.
+- Inputs: "Makulatura narxi (so'm)" (number), "Izoh" (text optional).
+- Save: `discardToMakulatura`, toast "Makulaturaga chiqarildi. Kirim yozuvi yaratildi."
+
+## 4. `src/pages/ICH.tsx` qayta yoziladi
+
+Tuzilma:
 
 ```text
-PageHeader (Ombor — sarlavha, subtitle, [Eksport] tugma)
-Tabs:
-  ├── Tayyor mahsulot
-  │   FilterBar: [Search] [Holati ▾] [Turi ▾]   → o'ng: [TM qo'shish] [WL import]
-  │   Table: No | Nomi | Turi(badge) | Holati | Miqdori | Birlik | Min | Narx
-  └── Xomashiyo
-      FilterBar: [Search] [Turi ▾]   → o'ng: [Xomashiyo import] [Import tarixi]
-      Table: No | Nomi | Turi(badge) | Miqdori | Birlik | Narx | Holat
+PageHeader (Yangi partiya tugmasi olib tashlanadi — sectionga ko'chadi)
+3 KPI stat-cards (Bu oy partiyalar, Ishlab chiqarilgan, Astatka — astatka soni dynamic)
+
+[Card] ICH Xomashiyo Ombori
+  header: title + "Ombordan xomashiyo import" tugma (primary)
+  table: No | Nomi | Miqdori | O'lchov | Holat (Yetarli/Kam badge)
+
+[Card] Ishlab chiqarish partiyalari
+  header: title + "+ Yangi partiya" tugma
+  existing table (ichBatches store'dan)
+
+[Card] Astatka (Qoldiqlar)
+  header: title + "Makulaturaga chiqarish (tanlangan)" tugma (selected.length<2 bo'lsa disabled)
+  table: checkbox | No | Sana | Nomi | Miqdori | O'lchov | Holati | Amallar
+  per-row "Makulaturaga chiqarish" outline tugma faqat status="Omborida" uchun
 ```
 
-Filter logikasi `useMemo` bilan, real-time qidiruv. "Import tarixi" tugmasi `/ombor/import-tarixi` ga `navigate` qiladi.
+Local state: `selectedAstatka: number[]`, modal openers.
 
-`PageHeader` ga `actions` prop allaqachon mavjud — undan foydalanamiz; `showAdd` ni o'chirib, modal trigger tugmalarni o'zimiz qo'yamiz.
+## 5. Texnik tafsilotlar
 
-### 4. Yangi komponentlar — `src/components/ombor/`
+- Mavjud `BranchBadge`, `StatusBadge` (`@/components/Badges`) ishlatiladi.
+- `Checkbox` `@/components/ui/checkbox` allaqachon mavjud.
+- `formatNumber` / `parseNumber` `@/lib/utils`'dan.
+- Boshqa sahifalar (WL, Ombor, Buyurtma, Chiqim) o'zgartirilmaydi. `Kirim.tsx` faqat store'dan `incomes`'ni reactive o'qish uchun yangilanadi (barcha ustun va layout saqlanadi).
+- Routing o'zgarmaydi (`/ich`).
 
-- `TmAddDialog.tsx` — Dialog + dinamik qatorlar (`useFieldArray`-siz, oddiy `useState<Row[]>`). Har qator: mahsulot Select (faqat TM products), miqdor, narx, jami (read-only). Pastda "Yana qo'shish", "Bekor qilish", "Saqlash". Validatsiya: zod schema (har qatorda productId tanlangan, qty>0, price>0). Saqlashda `addTmStock` chaqiriladi, `toast.success("N ta mahsulot omborga qo'shildi")`.
+## O'zgartiriladigan/yaratiladigan fayllar
 
-- `WlImportDialog.tsx` — Dialog. WL op Select (faqat status="Ishlab chiqarishdagi"). Tanlanganda kutilgan miqdor avto-to'ldiriladi (read-only). Maydonlar: qabul qilingan miqdor, narx, jami (auto), ortiqcha (auto, faqat >0 bo'lsa info bilan ko'rsatiladi). Saqlash → `receiveWlBatch`.
-
-- `XomashiyoImportDialog.tsx` — Dialog. RadioGroup (ICH/WL), Xomashiyo Select (turi bo'yicha filter), miqdor, narx (catalog default bilan avto-to'ldirilib editable), jami (auto), izoh. Saqlash → `importRaw`.
-
-- `OmborFilters.tsx` (ixtiyoriy yordamchi) — qaytalanadigan search + select filter blok.
-
-Barcha modallar `Dialog`/`DialogContent` (max-w-2xl), formlar `react-hook-form` + `zod` bilan (`@hookform/resolvers` mavjudligini package.json da tekshirdim — kerak bo'lsa add qilamiz; aks holda oddiy useState validation bilan ketamiz).
-
-### 5. Import tarixi sahifasi — `src/pages/OmborImportTarixi.tsx`
-
-- Route: `/ombor/import-tarixi` (App.tsx ga qo'shamiz).
-- PageHeader: "Xomashiyo Import Tarixi", subtitle, orqaga qaytish tugmasi (`<Button variant="ghost" onClick={() => navigate('/ombor')}>← Orqaga</Button>`) PageHeader actions slotida.
-- FilterBar: Turi Select (ICH/WL/Hammasi) + sana oralig'i (`Popover` + `Calendar` ikkita: dan/gacha — shadcn `calendar` mavjud).
-- Jadval ustunlar: No | Xomashiyo nomi | Turi (badge) | Miqdori | Birlik | Narxi | Jami summa | Izoh | Sana. Eng yangidan saralangan.
-- Ma'lumot store dan `getImportHistory()`.
-
-### 6. Chiqim sahifasi ulanish
-
-`Chiqim.tsx` ni store dagi `getExpenses()` natijasi bilan birlashtirilgan ro'yxatdan foydalanadi (boshlang'ich mock + store da qo'shilganlar). Bu modallardagi xaridlar haqiqiy chiqimga ta'sir qilishini ko'rsatadi.
-
-### 7. Dizayn / detallar
-
-- Holati badge: "Bo'sh" = neytral muted, "Band" = warning tonali.
-- "Kam" qator: qizil matn + `AlertCircle` ikon (mavjud uslub).
-- Sonlar: `formatNumber` helper bilan thousands separator.
-- Tugmalar: TM qo'shish & Xomashiyo import & Import → `bg-gradient-brand` (primary), boshqalari `variant="outline"`.
-- Zod validatsiya xabarlari uzbekcha; xato inline `<p className="text-xs text-destructive">`.
-
-### 8. Fayllar ro'yxati
-
-Yangi:
-- `src/lib/omborStore.ts`
-- `src/components/ombor/TmAddDialog.tsx`
-- `src/components/ombor/WlImportDialog.tsx`
-- `src/components/ombor/XomashiyoImportDialog.tsx`
-- `src/pages/OmborImportTarixi.tsx`
-
-O'zgartiriladi:
-- `src/lib/mockData.ts` (status maydon, import history seed, narx defaults)
-- `src/lib/utils.ts` (formatNumber)
-- `src/pages/Ombor.tsx` (filterlar, modallar, store)
-- `src/pages/Chiqim.tsx` (store ulanishi)
-- `src/App.tsx` (yangi route)
-
-### 9. Texnik eslatmalar
-
-- `react-hook-form` va `zod` allaqachon shadcn form bilan keladi (package.json da bor). Yo'q bo'lsa qo'shamiz.
-- WL import dialog uchun `wlOps` da `expectedQty` aniq emas — `qty` maydonidan kutilgan miqdor sifatida foydalanamiz, yangi `receivedQty` modal ichida kiritiladi.
-- Boshqa sahifalar (ICH, Buyurtma, Kirim, Catalogs, Partners) tegilmaydi.
-
-Tasdiqlasangiz, shu bo'yicha implementatsiyani boshlayman.
+- **edit:** `src/lib/mockData.ts` (yangi tip + seedlar)
+- **edit:** `src/lib/omborStore.ts` (ichRaw/astatka/batches/incomes state + 3 action)
+- **edit:** `src/pages/ICH.tsx` (to'liq qayta yozish)
+- **edit:** `src/pages/Kirim.tsx` (store'dan reactive o'qish)
+- **new:** `src/components/ich/ImportRawToIchDialog.tsx`
+- **new:** `src/components/ich/NewBatchDialog.tsx`
+- **new:** `src/components/ich/MakulaturaDialog.tsx`

@@ -141,10 +141,76 @@ export const incomes = [
   { id: 4, date: "27.04.2026", source: "Astatka sotuv", note: "Makulatura 1.2t", amount: "1 800 000", method: "Naqd" },
 ];
 
-export const ichBatches = [
+export interface IchBatch {
+  id: string;
+  date: string;
+  products: string;
+  cost: string;
+  scrap: string;
+  user: string;
+}
+
+export const ichBatches: IchBatch[] = [
   { id: "P-318", date: "28.04.2026", products: "Salfetka 365 (24) — 800 dona", cost: "5 240 000", scrap: "12 kg", user: "Operator" },
   { id: "P-317", date: "27.04.2026", products: "Tualet qog'ozi — 200 upak", cost: "3 880 000", scrap: "8 kg", user: "Operator" },
   { id: "P-316", date: "26.04.2026", products: "Salfetka mini — 1500 dona", cost: "2 100 000", scrap: "4 kg", user: "Admin" },
+];
+
+// Korobka (kichik) — ICH xomashiyo katalogiga qo'shamiz (BOM uchun kerak)
+export const ichExtraRawMaterials: RawMaterial[] = [
+  { id: 7, name: "Korobka (kichik)", branch: "ich", unit: "dona", stock: 320, min: 200, price: "1 800" },
+];
+
+// ICH ichki xomashiyo ombori (asosiy ombordan o'tkazilgan)
+export interface IchRawStock {
+  id: number;
+  materialId: number;
+  name: string;
+  unit: string;
+  stock: number;
+  min: number;
+}
+
+export const ichRawStockSeed: IchRawStock[] = [
+  { id: 1, materialId: 1, name: "Sellyuloza", unit: "kg", stock: 450, min: 300 },
+  { id: 2, materialId: 2, name: "Etiketka A4", unit: "dona", stock: 1200, min: 1000 },
+  { id: 3, materialId: 3, name: "Klej PVA", unit: "litre", stock: 38, min: 50 },
+  { id: 4, materialId: 7, name: "Korobka (kichik)", unit: "dona", stock: 95, min: 200 },
+];
+
+// BOM: productId -> materiallar va dona/birlik koeffisiyentlari
+export interface BomLine { materialId: number; name: string; unit: string; perUnit: number; }
+export const bom: Record<number, BomLine[]> = {
+  1: [ // Salfetka 365 (24)
+    { materialId: 1, name: "Sellyuloza", unit: "kg", perUnit: 0.01 },
+    { materialId: 2, name: "Etiketka A4", unit: "dona", perUnit: 0.001 },
+    { materialId: 3, name: "Klej PVA", unit: "litre", perUnit: 0.002 },
+  ],
+  2: [ // Tualet qog'ozi 12-li
+    { materialId: 1, name: "Sellyuloza", unit: "kg", perUnit: 0.008 },
+    { materialId: 7, name: "Korobka (kichik)", unit: "dona", perUnit: 1 },
+  ],
+  3: [ // Salfetka mini
+    { materialId: 1, name: "Sellyuloza", unit: "kg", perUnit: 0.005 },
+    { materialId: 2, name: "Etiketka A4", unit: "dona", perUnit: 0.0005 },
+  ],
+};
+
+export type AstatkaStatus = "Omborida" | "Makulaturaga chiqarilgan";
+export interface AstatkaItem {
+  id: number;
+  date: string;
+  name: string;
+  qty: number;
+  unit: string;
+  status: AstatkaStatus;
+}
+
+export const astatkaSeed: AstatkaItem[] = [
+  { id: 1, date: "28.04.2026", name: "Sellyuloza qoldig'i", qty: 12, unit: "kg", status: "Omborida" },
+  { id: 2, date: "27.04.2026", name: "Nuqsonli salfetka", qty: 45, unit: "dona", status: "Omborida" },
+  { id: 3, date: "26.04.2026", name: "Korobka parcha", qty: 4, unit: "kg", status: "Makulaturaga chiqarilgan" },
+  { id: 4, date: "25.04.2026", name: "Etiketka qoldig'i", qty: 200, unit: "dona", status: "Makulaturaga chiqarilgan" },
 ];
 
 export type WlStatus = "Ishlab chiqarishdagi" | "Ishlab chiqarilgan";
