@@ -1,23 +1,10 @@
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/Badges";
 import { agents, drivers, dealers, shops } from "@/lib/mockData";
+import { CEO as CEOComponent } from "./CEO";
 
 export function CEO() {
-  return (
-    <div className="space-y-6">
-      <PageHeader title="CEO — Hodimlar" subtitle="Tizim foydalanuvchilari (Admin va Operator)" showAdd addLabel="Hodim qo'shish" />
-      <div className="rounded-xl border bg-card overflow-hidden">
-        <table className="data-table">
-          <thead><tr><th>F.I.Sh</th><th>Telefon</th><th>Email</th><th>Rol</th><th>Holat</th></tr></thead>
-          <tbody>
-            <tr><td className="font-medium">Karimov A.</td><td>+998 90 100 20 30</td><td>admin@biznes.uz</td><td><StatusBadge status="Admin" tone="info" /></td><td><StatusBadge status="Faol" tone="success" /></td></tr>
-            <tr><td className="font-medium">Olimova M.</td><td>+998 91 200 30 40</td><td>operator1@biznes.uz</td><td><StatusBadge status="Operator" tone="default" /></td><td><StatusBadge status="Faol" tone="success" /></td></tr>
-            <tr><td className="font-medium">Yusupov B.</td><td>+998 93 300 40 50</td><td>operator2@biznes.uz</td><td><StatusBadge status="Operator" tone="default" /></td><td><StatusBadge status="Faol" tone="success" /></td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+  return <CEOComponent />;
 }
 
 export function Diler() {
