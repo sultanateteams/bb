@@ -165,7 +165,8 @@ export function addTmStock(items: TmAddItem[]) {
     return { ...p, stock: p.stock + addedQty };
   });
   if (totalCost > 0) {
-    addExpense("TM xarid", names.join(", "), totalCost);
+    const tmType = state.expenseTypes.find((t) => t.name === "Boshqa");
+    if (tmType) addExpense(tmType.id, tmType.name, names.join(", "), totalCost);
   }
   emit();
 }
@@ -180,7 +181,8 @@ export function receiveWlBatch(opId: string, receivedQty: number, pricePerUnit: 
     p.id === op.productId ? { ...p, stock: p.stock + receivedQty } : p,
   );
   const total = receivedQty * pricePerUnit;
-  addExpense("WL qabul", `${op.id} — ${op.product}: ${receivedQty} dona`, total);
+  const wlType = state.expenseTypes.find((t) => t.name === "WL xizmat haqi");
+  if (wlType) addExpense(wlType.id, wlType.name, `${op.id} — ${op.product}: ${receivedQty} dona`, total);
   emit();
 }
 
@@ -222,11 +224,11 @@ export function importRaw(input: RawImportInput) {
     },
     ...state.history,
   ];
-  addExpense(
-    `Xomashiyo (${mat.branch.toUpperCase()})`,
-    `${mat.name} — ${input.qty} ${mat.unit}`,
-    total,
-  );
+  const branchName = mat.branch.toUpperCase();
+  const expTypeMap: Record<string, string> = { ICH: "Xomashiyo (ICH)", WL: "Xomashiyo (WL)" };
+  const typeName = expTypeMap[branchName] || "Boshqa";
+  const expType = state.expenseTypes.find((t) => t.name === typeName);
+  if (expType) addExpense(expType.id, expType.name, `${mat.name} — ${input.qty} ${mat.unit}`, total);
   emit();
 }
 
@@ -320,7 +322,7 @@ export function discardToMakulatura(ids: number[], price: number, note?: string)
       : a,
   );
   const desc = items.map((i) => `${i.name} (${i.qty} ${i.unit})`).join(", ");
-  addIncome("Makulatura", note ? `${desc} — ${note}` : desc, price, "Naqd");
+  addIncome('scrap', price, 'cash', 'Admin', undefined, note ? `${desc} — ${note}` : desc);
   emit();
 }
 
@@ -371,7 +373,8 @@ export function createOrder(input: CreateOrderInput) {
     return it ? { ...p, stock: Math.max(0, p.stock - it.qty) } : p;
   });
   if (input.paid > 0) {
-    addIncome(input.shop, `Buyurtma ${input.id} to'lovi`, input.paid, input.method);
+    const payMethod = input.method === "Naqd" ? "cash" : (input.method === "Plastik" ? "card" : "transfer");
+    addIncome('order_payment', input.paid, payMethod as 'cash' | 'card' | 'transfer', 'Admin', input.id, `${input.shop} chiqqasi`);
   }
   emit();
   return order;
@@ -393,7 +396,8 @@ export function addOrderPayment(orderId: string, amount: number, method: string)
       ? { ...x, paid: newPaid, status: calcStatus(x.total, newPaid), payments: [...x.payments, pay] }
       : x,
   );
-  addIncome(o.shop, `Buyurtma ${o.id} to'lovi`, amt, method);
+  const payMethod = method === "Naqd" ? "cash" : (method === "Plastik" ? "card" : "transfer");
+  addIncome('order_payment', amt, payMethod as 'cash' | 'card' | 'transfer', 'Admin', o.id, `${o.shop} to'lovi`);
   emit();
 }
 
