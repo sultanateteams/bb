@@ -147,6 +147,7 @@ export const expenseTypes = [
   { id: 10, name: "ICH texnik xarajat", description: "", isAutomatic: false },
   { id: 11, name: "WL texnik xarajat", description: "", isAutomatic: false },
   { id: 12, name: "Boshqa", description: "", isAutomatic: false },
+  { id: 13, name: "Kreditorlik to'lovi", description: "", isAutomatic: false },
 ];
 
 export const incomes = [
@@ -267,6 +268,27 @@ export const wlOps: WlOp[] = [
   { id: "WL-102", date: "24.04.2026", product: "Poroshok 900g", productId: 6, qty: 180, factory: "Zavod-A", status: "Ishlab chiqarilgan", cost: "6 240 000", receivedQuantity: 180 },
 ];
 
+export interface Supplier {
+  id: string;
+  nomi: string;
+  telefon: string;
+  manzil?: string;
+  inn?: string;
+  izoh?: string;
+  createdAt: string;
+}
+
+export type PaymentMethod = "naqt" | "plastik" | "otkazma";
+export type PaymentStatus = "tolangan" | "qisman" | "tolanmagan";
+
+export interface PaymentRecord {
+  id: string;
+  sana: string;
+  summa: number;
+  usul: PaymentMethod;
+  izoh?: string;
+}
+
 export interface RawImportRecord {
   id: number;
   materialId: number;
@@ -278,6 +300,16 @@ export interface RawImportRecord {
   total: string;
   note: string;
   date: string;
+  // New payment tracking fields
+  tamirotchi_id?: string;
+  jami_summa?: number;
+  tolangan_summa?: number;
+  qoldiq?: number;
+  tolov_holati?: PaymentStatus;
+  tolov_usuli?: PaymentMethod;
+  tolov_tarixi?: PaymentRecord[];
+  tolov_muddati?: string;
+  import_turi?: "xomashiyo" | "tm" | "wl";
 }
 
 export const regions = ["Toshkent", "Samarqand", "Buxoro", "Andijon", "Farg'ona", "Namangan"];
@@ -371,10 +403,160 @@ export function returnsRestockStock(reason: string): boolean {
   return reason === "rejected" || reason === "transport";
 }
 
+export const suppliers: Supplier[] = [
+  {
+    id: "sup-001",
+    nomi: "Sherzod Trade",
+    telefon: "+998 90 123 45 67",
+    manzil: "Toshkent, Mirzo Ulugbek tumani",
+    inn: "301234567",
+    izoh: "Xomashiyo ta'minotchisi",
+    createdAt: "25.04.2026",
+  },
+  {
+    id: "sup-002",
+    nomi: "Box-Pro MChJ",
+    telefon: "+998 91 234 56 78",
+    manzil: "Toshkent, Chilonzor tumani",
+    inn: "302345678",
+    izoh: "Korobka va qifolovchi masalalar",
+    createdAt: "20.04.2026",
+  },
+  {
+    id: "sup-003",
+    nomi: "Print Center",
+    telefon: "+998 93 345 67 89",
+    manzil: "Samarqand, Samarqand tumani",
+    inn: "303456789",
+    createdAt: "15.04.2026",
+  },
+  {
+    id: "sup-004",
+    nomi: "Kimyo Sklad",
+    telefon: "+998 94 456 78 90",
+    manzil: "Buxoro",
+    inn: "304567890",
+    izoh: "Kimyoviy moddalar",
+    createdAt: "10.04.2026",
+  },
+  {
+    id: "sup-005",
+    nomi: "Zavod-A",
+    telefon: "+998 97 567 89 01",
+    manzil: "Andijon, sanoat zona",
+    izoh: "White Label ishlab chiqarish",
+    createdAt: "01.04.2026",
+  },
+  {
+    id: "sup-006",
+    nomi: "Zavod-B",
+    telefon: "+998 98 678 90 12",
+    manzil: "Farg'ona, sanoat zona",
+    izoh: "White Label ishlab chiqarish",
+    createdAt: "01.04.2026",
+  },
+];
+
 export const rawImportHistory: RawImportRecord[] = [
-  { id: 1, materialId: 1, name: "Sellyuloza 365kun", branch: "ich", qty: 500, unit: "kg", price: "8 200", total: "4 100 000", note: "Sherzod Trade — invoys #4421", date: "28.04.2026" },
-  { id: 2, materialId: 4, name: "Korobka 1000gr", branch: "wl", qty: 1000, unit: "dona", price: "1 200", total: "1 200 000", note: "Box-Pro MChJ", date: "26.04.2026" },
-  { id: 3, materialId: 2, name: "Etiketka A4", branch: "ich", qty: 5000, unit: "dona", price: "180", total: "900 000", note: "Print Center", date: "22.04.2026" },
-  { id: 4, materialId: 5, name: "Selofan rulon", branch: "wl", qty: 80, unit: "kg", price: "9 800", total: "784 000", note: "", date: "18.04.2026" },
-  { id: 5, materialId: 3, name: "Klej PVA", branch: "ich", qty: 40, unit: "litre", price: "14 500", total: "580 000", note: "Kimyo Sklad", date: "12.04.2026" },
+  {
+    id: 1,
+    materialId: 1,
+    name: "Sellyuloza 365kun",
+    branch: "ich",
+    qty: 500,
+    unit: "kg",
+    price: "8 200",
+    total: "4 100 000",
+    note: "invoys #4421",
+    date: "28.04.2026",
+    tamirotchi_id: "sup-001",
+    jami_summa: 4100000,
+    tolangan_summa: 2000000,
+    qoldiq: 2100000,
+    tolov_holati: "qisman",
+    tolov_usuli: "otkazma",
+    tolov_tarixi: [{ id: "pay-1", sana: "28.04.2026", summa: 2000000, usul: "otkazma", izoh: "Qisman to'lov" }],
+    tolov_muddati: "05.05.2026",
+    import_turi: "xomashiyo",
+  },
+  {
+    id: 2,
+    materialId: 4,
+    name: "Korobka 1000gr",
+    branch: "wl",
+    qty: 1000,
+    unit: "dona",
+    price: "1 200",
+    total: "1 200 000",
+    note: "",
+    date: "26.04.2026",
+    tamirotchi_id: "sup-002",
+    jami_summa: 1200000,
+    tolangan_summa: 1200000,
+    qoldiq: 0,
+    tolov_holati: "tolangan",
+    tolov_usuli: "plastik",
+    tolov_tarixi: [{ id: "pay-2", sana: "26.04.2026", summa: 1200000, usul: "plastik" }],
+    import_turi: "xomashiyo",
+  },
+  {
+    id: 3,
+    materialId: 2,
+    name: "Etiketka A4",
+    branch: "ich",
+    qty: 5000,
+    unit: "dona",
+    price: "180",
+    total: "900 000",
+    note: "",
+    date: "22.04.2026",
+    tamirotchi_id: "sup-003",
+    jami_summa: 900000,
+    tolangan_summa: 0,
+    qoldiq: 900000,
+    tolov_holati: "tolanmagan",
+    tolov_tarixi: [],
+    tolov_muddati: "29.04.2026",
+    import_turi: "xomashiyo",
+  },
+  {
+    id: 4,
+    materialId: 5,
+    name: "Selofan rulon",
+    branch: "wl",
+    qty: 80,
+    unit: "kg",
+    price: "9 800",
+    total: "784 000",
+    note: "",
+    date: "18.04.2026",
+    tamirotchi_id: "sup-002",
+    jami_summa: 784000,
+    tolangan_summa: 784000,
+    qoldiq: 0,
+    tolov_holati: "tolangan",
+    tolov_usuli: "naqt",
+    tolov_tarixi: [{ id: "pay-4", sana: "18.04.2026", summa: 784000, usul: "naqt" }],
+    import_turi: "xomashiyo",
+  },
+  {
+    id: 5,
+    materialId: 3,
+    name: "Klej PVA",
+    branch: "ich",
+    qty: 40,
+    unit: "litre",
+    price: "14 500",
+    total: "580 000",
+    note: "",
+    date: "12.04.2026",
+    tamirotchi_id: "sup-004",
+    jami_summa: 580000,
+    tolangan_summa: 580000,
+    qoldiq: 0,
+    tolov_holati: "tolangan",
+    tolov_usuli: "otkazma",
+    tolov_tarixi: [{ id: "pay-5", sana: "12.04.2026", summa: 580000, usul: "otkazma" }],
+    import_turi: "xomashiyo",
+  },
 ];

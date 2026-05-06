@@ -20,6 +20,9 @@ import ExpenseTypes from "./pages/ExpenseTypes";
 import { MahsulotTurlari, XomashiyoTurlari } from "./pages/Catalogs";
 import XomashiyoTurlariPage from "./pages/XomashiyoTurlari/XomashiyoTurlariPage";
 import { CEO, Diler, Dokon, SavdoVakili, Haydovchi, Sozlamalar } from "./pages/Partners";
+import { Tamirotchilar } from "./pages/Tamirotchilar";
+import TamirotchilarDetail from "./pages/TamirotchilarDetail";
+import Kreditorlik from "./pages/Kreditorlik";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -46,6 +49,8 @@ const App = () => (
               <Route path="/kirim" element={<Kirim />} />
               <Route path="/chiqim" element={<Chiqim />} />
               <Route path="/expense-types" element={<ExpenseTypes />} />
+              <Route path="/tamirotchilar" element={<Tamirotchilar />} />
+              <Route path="/tamirotchilar/:id" element={<TamirotchilarDetail />} />
               <Route path="/mahsulot-turlari" element={<MahsulotTurlari />} />
               <Route path="/xomashiyo-turlari" element={<XomashiyoTurlariPage />} />
               <Route path="/ceo" element={<CEO />} />

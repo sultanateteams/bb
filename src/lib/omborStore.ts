@@ -13,6 +13,7 @@ import {
   astatkaSeed,
   ichExtraRawMaterials,
   bom,
+  suppliers as seedSuppliers,
   type Product,
   type RawMaterial,
   type WlOp,
@@ -21,6 +22,10 @@ import {
   type IchRawStock,
   type AstatkaItem,
   type Branch,
+  type Supplier,
+  type PaymentRecord,
+  type PaymentStatus,
+  type PaymentMethod,
   ordersSeed,
   returnsRestockStock,
   type Order,
@@ -71,6 +76,7 @@ interface State {
   ichRaw: IchRawStock[];
   astatka: AstatkaItem[];
   orders: Order[];
+  suppliers: Supplier[];
 }
 
 let state: State = {
@@ -85,6 +91,7 @@ let state: State = {
   ichRaw: ichRawStockSeed.map((r) => ({ ...r })),
   astatka: astatkaSeed.map((a) => ({ ...a })),
   orders: ordersSeed.map((o) => ({ ...o, items: o.items.map(i => ({ ...i })), payments: [...o.payments], returns: [...o.returns] })),
+  suppliers: seedSuppliers.map((s) => ({ ...s })),
 };
 
 const listeners = new Set<() => void>();
@@ -112,6 +119,7 @@ let nextHistoryId = Math.max(0, ...state.history.map((h) => h.id)) + 1;
 let nextAstatkaId = Math.max(0, ...state.astatka.map((a) => a.id)) + 1;
 let nextIchRawId = Math.max(0, ...state.ichRaw.map((r) => r.id)) + 1;
 let nextBatchNum = 319;
+let nextSupplierId = 1000;
 
 function addExpense(typeId: number, type: string, description: string, amount: number) {
   state.expenses = [
@@ -530,5 +538,108 @@ export function addNewExpense(input: AddExpenseInput) {
     },
     ...state.expenses,
   ];
+  emit();
+}
+
+// ============== Supplier Management ==============
+
+export interface AddSupplierInput {
+  nomi: string;
+  telefon: string;
+  manzil?: string;
+  inn?: string;
+  izoh?: string;
+}
+
+export function addSupplier(input: AddSupplierInput): Supplier {
+  const newSupplier: Supplier = {
+    id: `sup-${nextSupplierId++}`,
+    nomi: input.nomi,
+    telefon: input.telefon,
+    manzil: input.manzil,
+    inn: input.inn,
+    izoh: input.izoh,
+    createdAt: todayUz(),
+  };
+  state.suppliers = [newSupplier, ...state.suppliers];
+  emit();
+  return newSupplier;
+}
+
+export function updateSupplier(id: string, input: AddSupplierInput) {
+  state.suppliers = state.suppliers.map((s) =>
+    s.id === id
+      ? { ...s, nomi: input.nomi, telefon: input.telefon, manzil: input.manzil, inn: input.inn, izoh: input.izoh }
+      : s,
+  );
+  emit();
+}
+
+export function deleteSupplier(id: string) {
+  state.suppliers = state.suppliers.filter((s) => s.id !== id);
+  emit();
+}
+
+// Get all kreditorlik records (imports with outstanding payment)
+export function getKreditorlikList(): RawImportRecord[] {
+  return state.history.filter((h) => h.qoldiq && h.qoldiq > 0);
+}
+
+// Get supplier total outstanding kreditorlik
+export function getSupplierTotalKreditorlik(supplierId: string): number {
+  return state.history
+    .filter((h) => h.tamirotchi_id === supplierId && h.qoldiq && h.qoldiq > 0)
+    .reduce((sum, h) => sum + (h.qoldiq || 0), 0);
+}
+
+// Add payment to an import record
+export interface AddPaymentInput {
+  historyId: number;
+  summa: number;
+  usul: PaymentMethod;
+  izoh?: string;
+  sana?: string;
+}
+
+export function addPaymentToImport(input: AddPaymentInput) {
+  state.history = state.history.map((h) => {
+    if (h.id !== input.historyId || h.qoldiq === undefined || h.qoldiq <= 0) return h;
+
+    const newTolangan = (h.tolangan_summa || 0) + input.summa;
+    const newQoldiq = Math.max(0, (h.jami_summa || 0) - newTolangan);
+    const newPayment: PaymentRecord = {
+      id: `pay-${Date.now()}`,
+      sana: input.sana || todayUz(),
+      summa: input.summa,
+      usul: input.usul,
+      izoh: input.izoh,
+    };
+
+    const newStatus: PaymentStatus = newQoldiq === 0 ? "tolangan" : "qisman";
+
+    return {
+      ...h,
+      tolangan_summa: newTolangan,
+      qoldiq: newQoldiq,
+      tolov_holati: newStatus,
+      tolov_usuli: input.usul,
+      tolov_tarixi: [...(h.tolov_tarixi || []), newPayment],
+    };
+  });
+
+  // Create expense entry for the payment
+  const importRecord = state.history.find((h) => h.id === input.historyId);
+  if (importRecord) {
+    const kredType = state.expenseTypes.find((t) => t.name === "Kreditorlik to'lovi");
+    if (kredType) {
+      addExpense(
+        kredType.id,
+        kredType.name,
+        `Ta'minotchi to'lovi: ${importRecord.name} — ${input.summa} so'm`,
+        input.summa,
+      );
+    }
+  }
+
   emit();
 }
