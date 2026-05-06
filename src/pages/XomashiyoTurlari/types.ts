@@ -11,10 +11,10 @@ interface RawMaterial {
 
 interface RawMaterialFormData {
   name: string;
-  type: 'ICH' | 'WL' | '';
-  unit: 'kg' | 'litre' | 'dona' | '';
-  defaultPrice: number | '';
-  minStock: number | '';
+  type: 'ICH' | 'WL' | '' | string;
+  unit: 'kg' | 'litre' | 'dona' | '' | string;
+  defaultPrice: string;
+  minStock: string;
   description: string;
 }
 

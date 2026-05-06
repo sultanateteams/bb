@@ -66,7 +66,7 @@ export default function WLSendModal({ open, onOpenChange }: Props) {
       return;
     }
     product.bomItems = productBOM.map((item) => {
-      const material = rawMaterials.find((m) => m.materialId === item.materialId);
+      const material = rawMaterials.find((m) => m.id === item.materialId);
       const calculated = item.perUnit * product.quantity;
       const stock = material ? material.stock : 0;
       return {

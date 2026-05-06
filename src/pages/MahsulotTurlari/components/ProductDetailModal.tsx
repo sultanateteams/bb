@@ -77,7 +77,7 @@ export function ProductDetailModal({
           <DialogTitle>{productInfo.name} — Batafsil</DialogTitle>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ModalTab)} className="space-y-4">
           <TabsList>
             <TabsTrigger value="info">Asosiy ma'lumotlar</TabsTrigger>
             <TabsTrigger value="bom">{isTM ? "Ichki ma'lumot" : "Tarkib (BOM)"}</TabsTrigger>
