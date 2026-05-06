@@ -147,7 +147,7 @@ export const expenseTypes = [
   { id: 10, name: "ICH texnik xarajat", description: "", isAutomatic: false },
   { id: 11, name: "WL texnik xarajat", description: "", isAutomatic: false },
   { id: 12, name: "Boshqa", description: "", isAutomatic: false },
-  { id: 13, name: "Kreditorlik to'lovi", description: "", isAutomatic: false },
+  { id: 13, name: "Kreditorlik to'lovi", description: "Ta'minotchilarga qarz to'lovi", isAutomatic: true },
 ];
 
 export const incomes = [
