@@ -15,7 +15,7 @@ interface SalesAgentFormData {
   middleName: string;
   pinfl: string;
   phone: string;
-  commissionRate: number | '';
+  commissionRate: string;
 }
 
 export type { SalesAgent, SalesAgentFormData };
