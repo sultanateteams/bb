@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useOmborStore, addPaymentToImport } from "@/lib/omborStore";
+import { useOmborStore, addPaymentToImportLegacy as addPaymentToImport } from "@/lib/omborStore";
 import { formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
 
