@@ -1,27 +1,80 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { BranchBadge, StatusBadge } from "@/components/Badges";
 import {
   dashboardKpis, revenueSeries, branchShare, lowStockAlerts, recentOrders,
 } from "@/lib/mockData";
-import { ArrowUpRight, ArrowDownRight, AlertTriangle } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, AlertTriangle, CreditCard, X } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from "recharts";
-import { cn } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
+import { useOmborStore } from "@/lib/omborStore";
+import { Button } from "@/components/ui/button";
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+  const history = useOmborStore((s) => s.history);
+  const suppliers = useOmborStore((s) => s.suppliers);
+  const orders = useOmborStore((s) => s.orders);
+  const [showOverdueBanner, setShowOverdueBanner] = useState(true);
+
+  // Kreditorlik calculations
+  const unpaidImports = history.filter((r) => r.qoldiq && r.qoldiq > 0 && r.tolov_holati !== "tolangan");
+  const totalKreditorlik = unpaidImports.reduce((sum, r) => sum + (r.qoldiq || 0), 0);
+  const uniqueKredSuppliers = new Set(unpaidImports.map((r) => r.tamirotchi_id).filter(Boolean)).size;
+
+  // Overdue
+  const overdueImports = unpaidImports.filter((r) => {
+    if (!r.tolov_muddati) return false;
+    const parts = r.tolov_muddati.split(".");
+    if (parts.length !== 3) return false;
+    const deadline = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+    return deadline < new Date();
+  });
+  const overdueSum = overdueImports.reduce((s, r) => s + (r.qoldiq || 0), 0);
+
+  // Top 5 kreditorlik
+  const top5Kred = [...unpaidImports].sort((a, b) => (b.qoldiq || 0) - (a.qoldiq || 0)).slice(0, 5);
+
+  // Top 5 debitorlik (unpaid orders)
+  const unpaidOrders = orders.filter((o) => o.status !== "To'langan");
+  const top5Debit = [...unpaidOrders].sort((a, b) => (b.total - b.paid) - (a.total - a.paid)).slice(0, 5);
+
+  // Compute dynamic KPI cards
+  const kpiCards = [
+    ...dashboardKpis.slice(0, 3),
+    {
+      label: "Kreditorlik",
+      value: formatNumber(totalKreditorlik),
+      unit: "so'm",
+      delta: `${uniqueKredSuppliers} ta`,
+      positive: false,
+      clickUrl: "/kreditorlik",
+    },
+    ...dashboardKpis.slice(3),
+  ];
+
   return (
     <div className="space-y-6">
       <PageHeader title="Dashboard" subtitle="Biznesning real-time ko'rinishi" showExport />
 
       {/* KPI grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-        {dashboardKpis.map((k) => (
-          <div key={k.label} className="stat-card">
-            <div className="text-xs text-muted-foreground">{k.label}</div>
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-3">
+        {kpiCards.map((k: any) => (
+          <div
+            key={k.label}
+            className={cn("stat-card", k.clickUrl && "cursor-pointer hover:ring-1 hover:ring-primary/30")}
+            onClick={() => k.clickUrl && navigate(k.clickUrl)}
+          >
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-muted-foreground">{k.label}</div>
+              {k.label === "Kreditorlik" && <CreditCard className="h-3.5 w-3.5 text-orange-500" />}
+            </div>
             <div className="mt-2 flex items-baseline gap-1">
-              <span className="text-xl font-semibold tracking-tight">{k.value}</span>
+              <span className={cn("text-xl font-semibold tracking-tight", k.label === "Kreditorlik" && "text-orange-600")}>{k.value}</span>
               <span className="text-[11px] text-muted-foreground">{k.unit}</span>
             </div>
             <div className={cn("mt-2 inline-flex items-center gap-1 text-[11px] font-medium",
@@ -32,6 +85,28 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+
+      {/* Overdue Warning Banner */}
+      {showOverdueBanner && overdueImports.length > 0 && (
+        <div className="flex items-center justify-between rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
+            <div>
+              <span className="text-sm font-medium text-amber-800">
+                ⚠️ Muddati o'tgan kreditorlik: {overdueImports.length} ta to'lov | {formatNumber(overdueSum)} so'm
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" className="text-amber-700 hover:text-amber-900" onClick={() => navigate("/kreditorlik?filter=muddati_otgan")}>
+              Kreditorlikni ko'rish →
+            </Button>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowOverdueBanner(false)}>
+              <X className="h-4 w-4 text-amber-600" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -93,7 +168,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Alerts + Recent orders */}
+      {/* Alerts + Recent orders + Kreditorlik Top 5 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="rounded-xl border bg-card p-5">
           <div className="flex items-center gap-2 mb-3">
@@ -123,7 +198,7 @@ export default function Dashboard() {
 
         <div className="lg:col-span-2 rounded-xl border bg-card overflow-hidden">
           <div className="flex items-center justify-between p-5 pb-3">
-            <h3 className="font-semibold">So'nggi buyurtmalar</h3>
+            <h3 className="font-semibold">Debitorlik — Top 5 (Mijozlar)</h3>
             <a href="/buyurtma" className="text-xs text-primary hover:underline">Hammasi →</a>
           </div>
           <table className="data-table">
@@ -133,19 +208,66 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {recentOrders.map((o) => (
-                <tr key={o.id}>
-                  <td className="font-mono text-xs">{o.id}</td>
-                  <td className="font-medium">{o.shop}</td>
-                  <td className="text-muted-foreground">{o.agent}</td>
-                  <td className="font-medium">{o.total} so'm</td>
-                  <td><StatusBadge status={o.status} tone={o.status === "Yetkazildi" ? "success" : o.status === "Yo'lda" ? "info" : o.status === "Yangi" ? "warning" : "default"} /></td>
-                  <td>{o.paid ? <StatusBadge status="To'langan" tone="success" /> : <StatusBadge status="Qarzdor" tone="danger" />}</td>
-                </tr>
-              ))}
+              {top5Debit.length === 0 ? (
+                <tr><td colSpan={6} className="text-center py-6 text-muted-foreground">✅ Mijozlarga qarzdorlik yo'q</td></tr>
+              ) : (
+                top5Debit.map((o) => (
+                  <tr key={o.id}>
+                    <td className="font-mono text-xs">{o.id}</td>
+                    <td className="font-medium">{o.shop}</td>
+                    <td className="text-muted-foreground">{o.agent}</td>
+                    <td className="font-medium">{formatNumber(o.total)} so'm</td>
+                    <td><StatusBadge status={o.status} tone={o.status === "To'langan" ? "success" : o.status === "Qisman to'langan" ? "warning" : "danger"} /></td>
+                    <td className="text-red-600 font-medium">{formatNumber(o.total - o.paid)} so'm</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Kreditorlik Top 5 */}
+      <div className="rounded-xl border bg-card overflow-hidden">
+        <div className="flex items-center justify-between p-5 pb-3">
+          <h3 className="font-semibold">Kreditorlik — Top 5 (Ta'minotchilar)</h3>
+          <button onClick={() => navigate("/kreditorlik")} className="text-xs text-primary hover:underline">Barchasini ko'rish →</button>
+        </div>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Ta'minotchi</th>
+              <th>Import turi</th>
+              <th className="text-right">Jami summa</th>
+              <th className="text-right">To'langan</th>
+              <th className="text-right">Qoldiq</th>
+              <th>Muddati</th>
+            </tr>
+          </thead>
+          <tbody>
+            {top5Kred.length === 0 ? (
+              <tr><td colSpan={6} className="text-center py-6 text-muted-foreground">✅ Ta'minotchilarga qarzdorlik yo'q</td></tr>
+            ) : (
+              top5Kred.map((r) => {
+                const supplier = suppliers.find((s) => s.id === r.tamirotchi_id);
+                return (
+                  <tr key={r.id}>
+                    <td className="font-medium">{supplier?.nomi || "—"}</td>
+                    <td>
+                      <span className="rounded bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
+                        {r.import_turi === "xomashiyo" ? "Xomashiyo" : r.import_turi === "tm" ? "TM" : "WL"}
+                      </span>
+                    </td>
+                    <td className="text-right tabular-nums">{formatNumber(r.jami_summa || 0)} so'm</td>
+                    <td className="text-right tabular-nums text-green-600">{formatNumber(r.tolangan_summa || 0)} so'm</td>
+                    <td className="text-right tabular-nums font-semibold text-red-600">{formatNumber(r.qoldiq || 0)} so'm</td>
+                    <td>{r.tolov_muddati || "—"}</td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
