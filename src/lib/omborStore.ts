@@ -159,7 +159,20 @@ export interface TmAddItem {
   note?: string;
 }
 
+export interface TmAddWithPaymentInput {
+  items: TmAddItem[];
+  supplierId?: string;
+  tolanganSumma?: number;
+  tolovUsuli?: string;
+  tolovMuddati?: string;
+}
+
 export function addTmStock(items: TmAddItem[]) {
+  addTmStockWithPayment({ items });
+}
+
+export function addTmStockWithPayment(input: TmAddWithPaymentInput) {
+  const { items } = input;
   let totalCost = 0;
   const names: string[] = [];
   state.products = state.products.map((p) => {
@@ -172,25 +185,130 @@ export function addTmStock(items: TmAddItem[]) {
     });
     return { ...p, stock: p.stock + addedQty };
   });
+
+  const tolangan = input.tolanganSumma ?? totalCost;
+  const qoldiq = totalCost - tolangan;
+  const tolovHolati: PaymentStatus = tolangan >= totalCost ? "tolangan" : tolangan > 0 ? "qisman" : "tolanmagan";
+
+  let muddatiFormatted: string | undefined;
+  if (input.tolovMuddati) {
+    const d = new Date(input.tolovMuddati);
+    muddatiFormatted = `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
+  }
+
+  // Create history record for kreditorlik tracking
   if (totalCost > 0) {
-    const tmType = state.expenseTypes.find((t) => t.name === "Boshqa");
-    if (tmType) addExpense(tmType.id, tmType.name, names.join(", "), totalCost);
+    const tolovTarixi: PaymentRecord[] = tolangan > 0 ? [{
+      id: `pay-${Date.now()}`,
+      sana: todayUz(),
+      summa: tolangan,
+      usul: (input.tolovUsuli || "naqt") as PaymentMethod,
+    }] : [];
+
+    state.history = [
+      {
+        id: nextHistoryId++,
+        materialId: 0,
+        name: names.join(", "),
+        branch: "tm" as Branch,
+        qty: items.reduce((s, i) => s + i.qty, 0),
+        unit: "dona",
+        price: "—",
+        total: formatNumber(totalCost),
+        note: "",
+        date: todayUz(),
+        tamirotchi_id: input.supplierId,
+        jami_summa: totalCost,
+        tolangan_summa: tolangan,
+        qoldiq,
+        tolov_holati: tolovHolati,
+        tolov_usuli: tolangan > 0 ? (input.tolovUsuli || "naqt") as PaymentMethod : undefined,
+        tolov_tarixi: tolovTarixi,
+        tolov_muddati: muddatiFormatted,
+        import_turi: "tm",
+      },
+      ...state.history,
+    ];
+
+    // Create chiqim only for tolangan amount
+    if (tolangan > 0) {
+      const tmType = state.expenseTypes.find((t) => t.name === "TM kirim") || state.expenseTypes.find((t) => t.name === "Boshqa");
+      if (tmType) addExpense(tmType.id, tmType.name, `TM import: ${names.join(", ")}`, tolangan);
+    }
   }
   emit();
 }
 
+export interface WlReceiveWithPaymentInput {
+  opId: string;
+  receivedQty: number;
+  pricePerUnit: number;
+  supplierId?: string;
+  tolanganSumma?: number;
+  tolovUsuli?: string;
+  tolovMuddati?: string;
+}
+
 export function receiveWlBatch(opId: string, receivedQty: number, pricePerUnit: number) {
-  const op = state.wlOps.find((o) => o.id === opId);
+  receiveWlBatchWithPayment({ opId, receivedQty, pricePerUnit });
+}
+
+export function receiveWlBatchWithPayment(input: WlReceiveWithPaymentInput) {
+  const op = state.wlOps.find((o) => o.id === input.opId);
   if (!op) return;
   state.wlOps = state.wlOps.map((o) =>
-    o.id === opId ? { ...o, status: "Ishlab chiqarilgan" } : o,
+    o.id === input.opId ? { ...o, status: "Ishlab chiqarilgan" } : o,
   );
   state.products = state.products.map((p) =>
-    p.id === op.productId ? { ...p, stock: p.stock + receivedQty } : p,
+    p.id === op.productId ? { ...p, stock: p.stock + input.receivedQty } : p,
   );
-  const total = receivedQty * pricePerUnit;
-  const wlType = state.expenseTypes.find((t) => t.name === "WL xizmat haqi");
-  if (wlType) addExpense(wlType.id, wlType.name, `${op.id} — ${op.product}: ${receivedQty} dona`, total);
+  const total = input.receivedQty * input.pricePerUnit;
+  const tolangan = input.tolanganSumma ?? total;
+  const qoldiq = total - tolangan;
+  const tolovHolati: PaymentStatus = tolangan >= total ? "tolangan" : tolangan > 0 ? "qisman" : "tolanmagan";
+
+  let muddatiFormatted: string | undefined;
+  if (input.tolovMuddati) {
+    const d = new Date(input.tolovMuddati);
+    muddatiFormatted = `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
+  }
+
+  const tolovTarixi: PaymentRecord[] = tolangan > 0 ? [{
+    id: `pay-${Date.now()}`,
+    sana: todayUz(),
+    summa: tolangan,
+    usul: (input.tolovUsuli || "naqt") as PaymentMethod,
+  }] : [];
+
+  state.history = [
+    {
+      id: nextHistoryId++,
+      materialId: 0,
+      name: op.product,
+      branch: "wl" as Branch,
+      qty: input.receivedQty,
+      unit: "dona",
+      price: formatNumber(input.pricePerUnit),
+      total: formatNumber(total),
+      note: `${op.id} — ${op.factory}`,
+      date: todayUz(),
+      tamirotchi_id: input.supplierId,
+      jami_summa: total,
+      tolangan_summa: tolangan,
+      qoldiq,
+      tolov_holati: tolovHolati,
+      tolov_usuli: tolangan > 0 ? (input.tolovUsuli || "naqt") as PaymentMethod : undefined,
+      tolov_tarixi: tolovTarixi,
+      tolov_muddati: muddatiFormatted,
+      import_turi: "wl",
+    },
+    ...state.history,
+  ];
+
+  if (tolangan > 0) {
+    const wlType = state.expenseTypes.find((t) => t.name === "WL xizmat haqi");
+    if (wlType) addExpense(wlType.id, wlType.name, `WL import: ${op.product} — ${input.receivedQty} dona`, tolangan);
+  }
   emit();
 }
 
