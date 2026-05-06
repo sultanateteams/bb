@@ -25,6 +25,7 @@ const finance = [
 const catalogs = [
   { title: "Mahsulot turlari", url: "/mahsulot-turlari", icon: Boxes },
   { title: "Xomashiyo turlari", url: "/xomashiyo-turlari", icon: Sprout },
+  { title: "Ta'minotchilar", url: "/tamirotchilar", icon: Truck },
 ];
 
 const partners = [
