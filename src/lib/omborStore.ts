@@ -201,7 +201,18 @@ export interface RawImportInput {
   note?: string;
 }
 
+export interface RawImportWithPaymentInput extends RawImportInput {
+  supplierId?: string;
+  tolanganSumma?: number;
+  tolovUsuli?: string;
+  tolovMuddati?: string;
+}
+
 export function importRaw(input: RawImportInput) {
+  importRawWithPayment(input);
+}
+
+export function importRawWithPayment(input: RawImportWithPaymentInput) {
   const mat = state.raw.find((r) => r.id === input.materialId);
   if (!mat) return;
   const oldStock = mat.stock;
@@ -217,6 +228,23 @@ export function importRaw(input: RawImportInput) {
   );
 
   const total = input.qty * input.price;
+  const tolangan = input.tolanganSumma ?? total;
+  const qoldiq = total - tolangan;
+  const tolovHolati: PaymentStatus = tolangan >= total ? "tolangan" : tolangan > 0 ? "qisman" : "tolanmagan";
+  const tolovTarixi: PaymentRecord[] = tolangan > 0 ? [{
+    id: `pay-${Date.now()}`,
+    sana: todayUz(),
+    summa: tolangan,
+    usul: (input.tolovUsuli || "naqt") as PaymentMethod,
+  }] : [];
+
+  // Convert tolovMuddati from YYYY-MM-DD to DD.MM.YYYY if present
+  let muddatiFormatted: string | undefined;
+  if (input.tolovMuddati) {
+    const d = new Date(input.tolovMuddati);
+    muddatiFormatted = `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
+  }
+
   state.history = [
     {
       id: nextHistoryId++,
@@ -229,14 +257,27 @@ export function importRaw(input: RawImportInput) {
       total: formatNumber(total),
       note: input.note ?? "",
       date: todayUz(),
+      tamirotchi_id: input.supplierId,
+      jami_summa: total,
+      tolangan_summa: tolangan,
+      qoldiq,
+      tolov_holati: tolovHolati,
+      tolov_usuli: tolangan > 0 ? (input.tolovUsuli || "naqt") as PaymentMethod : undefined,
+      tolov_tarixi: tolovTarixi,
+      tolov_muddati: muddatiFormatted,
+      import_turi: "xomashiyo",
     },
     ...state.history,
   ];
-  const branchName = mat.branch.toUpperCase();
-  const expTypeMap: Record<string, string> = { ICH: "Xomashiyo (ICH)", WL: "Xomashiyo (WL)" };
-  const typeName = expTypeMap[branchName] || "Boshqa";
-  const expType = state.expenseTypes.find((t) => t.name === typeName);
-  if (expType) addExpense(expType.id, expType.name, `${mat.name} — ${input.qty} ${mat.unit}`, total);
+
+  // Create chiqim only for tolangan amount
+  if (tolangan > 0) {
+    const branchName = mat.branch.toUpperCase();
+    const expTypeMap: Record<string, string> = { ICH: "Xomashiyo (ICH)", WL: "Xomashiyo (WL)" };
+    const typeName = expTypeMap[branchName] || "Boshqa";
+    const expType = state.expenseTypes.find((t) => t.name === typeName);
+    if (expType) addExpense(expType.id, expType.name, `Xomashiyo import: ${mat.name} — ${input.qty} ${mat.unit}`, tolangan);
+  }
   emit();
 }
 
