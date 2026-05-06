@@ -7,8 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { products as allProducts } from "@/lib/mockData";
-import { addTmStock } from "@/lib/omborStore";
+import { addTmStockWithPayment, useOmborStore } from "@/lib/omborStore";
 import { formatNumber } from "@/lib/utils";
+import { SupplierSelect } from "@/components/shared/SupplierSelect";
+import { PaymentSection } from "@/components/shared/PaymentSection";
 
 interface Row {
   key: string;
@@ -27,8 +29,13 @@ const newRow = (): Row => ({
 });
 
 export function TmAddDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+  const suppliers = useOmborStore((s) => s.suppliers);
   const [rows, setRows] = useState<Row[]>([newRow()]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [supplierId, setSupplierId] = useState<string | null>(null);
+  const [tolanganSumma, setTolanganSumma] = useState(0);
+  const [tolovUsuli, setTolovUsuli] = useState("naqt");
+  const [tolovMuddati, setTolovMuddati] = useState("");
 
   const tmProducts = useMemo(() => allProducts.filter((p) => p.branch === "tm"), []);
 
@@ -37,9 +44,13 @@ export function TmAddDialog({ open, onOpenChange }: { open: boolean; onOpenChang
   const remove = (key: string) =>
     setRows((rs) => (rs.length > 1 ? rs.filter((r) => r.key !== key) : rs));
 
+  const totalSum = rows.reduce((s, r) => s + (Number(r.qty) || 0) * (Number(r.price) || 0), 0);
+  const qoldiq = Math.max(0, totalSum - tolanganSumma);
+  const supplierName = supplierId ? suppliers.find((s) => s.id === supplierId)?.nomi : null;
+
   const reset = () => {
-    setRows([newRow()]);
-    setErrors({});
+    setRows([newRow()]); setErrors({});
+    setSupplierId(null); setTolanganSumma(0); setTolovUsuli("naqt"); setTolovMuddati("");
   };
 
   const handleSave = () => {
@@ -49,31 +60,33 @@ export function TmAddDialog({ open, onOpenChange }: { open: boolean; onOpenChang
       if (!r.qty || Number(r.qty) <= 0) errs[`q-${r.key}`] = "Miqdor > 0";
       if (!r.price || Number(r.price) <= 0) errs[`pr-${r.key}`] = "Narx > 0";
     });
-    if (Object.keys(errs).length) {
-      setErrors(errs);
-      return;
-    }
-    addTmStock(
-      rows.map((r) => ({
+    if (tolanganSumma > totalSum) errs.t = "To'langan summa jami summadan oshib ketdi";
+    if (Object.keys(errs).length) { setErrors(errs); return; }
+
+    addTmStockWithPayment({
+      items: rows.map((r) => ({
         productId: Number(r.productId),
         qty: Number(r.qty),
         price: Number(r.price),
         note: r.note,
       })),
-    );
-    toast.success(`${rows.length} ta TM mahsulot omborga qo'shildi`);
+      supplierId: supplierId || undefined,
+      tolanganSumma,
+      tolovUsuli,
+      tolovMuddati: tolovMuddati || undefined,
+    });
+
+    if (qoldiq > 0) {
+      toast.success(`✅ TM mahsulot qo'shildi. Kreditorlik: ${formatNumber(qoldiq)} so'm`);
+    } else {
+      toast.success("✅ TM mahsulot omborga qo'shildi");
+    }
     reset();
     onOpenChange(false);
   };
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => {
-        if (!o) reset();
-        onOpenChange(o);
-      }}
-    >
+    <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>TM Mahsulot Qo'shish</DialogTitle>
@@ -134,10 +147,32 @@ export function TmAddDialog({ open, onOpenChange }: { open: boolean; onOpenChang
 
           <div className="flex items-center justify-between rounded-lg bg-primary/5 px-4 py-3 text-sm">
             <span className="text-muted-foreground">Umumiy summa</span>
-            <span className="font-semibold tabular-nums">
-              {formatNumber(rows.reduce((s, r) => s + (Number(r.qty) || 0) * (Number(r.price) || 0), 0))} so'm
-            </span>
+            <span className="font-semibold tabular-nums">{formatNumber(totalSum)} so'm</span>
           </div>
+
+          <SupplierSelect value={supplierId} onChange={setSupplierId} />
+
+          {totalSum > 0 && (
+            <PaymentSection
+              jamiSumma={totalSum}
+              tolanganSumma={tolanganSumma}
+              onTolanganChange={setTolanganSumma}
+              tolovUsuli={tolovUsuli}
+              onTolovUsuliChange={setTolovUsuli}
+              tolovMuddati={tolovMuddati}
+              onTolovMuddatiChange={setTolovMuddati}
+            />
+          )}
+
+          {totalSum > 0 && (
+            <div className="rounded-lg border bg-muted/30 p-3 text-sm space-y-1">
+              <div>📦 Mahsulot: {rows.map((r) => tmProducts.find((p) => String(p.id) === r.productId)?.name || "—").join(", ")}</div>
+              <div>💰 Jami summa: {formatNumber(totalSum)} so'm</div>
+              {tolanganSumma > 0 && <div>✅ To'lanadi: {formatNumber(tolanganSumma)} so'm</div>}
+              {qoldiq > 0 && <div className="text-red-600">🔴 Kreditga: {formatNumber(qoldiq)} so'm</div>}
+              <div>🏢 Ta'minotchi: {supplierName || "—"}</div>
+            </div>
+          )}
         </div>
 
         <DialogFooter>
