@@ -315,12 +315,11 @@ export default function Kreditorlik() {
       )}
 
       {/* Detail Panel */}
-      {detailImportId && (
-        <KreditorlikDetailPanel
-          historyId={detailImportId}
-          onClose={() => setDetailImportId(null)}
-        />
-      )}
+      <KreditorlikDetailPanel
+        open={!!detailImportId}
+        onClose={() => setDetailImportId(null)}
+        historyId={detailImportId}
+      />
     </>
   );
 }
