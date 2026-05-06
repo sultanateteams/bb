@@ -1,5 +1,4 @@
-import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { useSyncExternalStore } from "react";
 
 export interface AuthUser {
   login: string;
@@ -7,16 +6,6 @@ export interface AuthUser {
   firstName: string;
   lastName: string;
   role: string;
-}
-
-interface AuthState {
-  user: AuthUser | null;
-  isAuthenticated: boolean;
-  login: (login: string, password: string) => boolean;
-  logout: () => void;
-  updateProfile: (data: { firstName: string; lastName: string }) => void;
-  changeLogin: (newLogin: string) => void;
-  changePassword: (current: string, next: string) => boolean;
 }
 
 const DEFAULT_USER: AuthUser = {
@@ -27,39 +16,70 @@ const DEFAULT_USER: AuthUser = {
   role: "CEO",
 };
 
-export const useAuth = create<AuthState>()(
-  persist(
-    (set, get) => ({
-      user: null,
-      isAuthenticated: false,
-      login: (login, password) => {
-        const stored = get().user ?? DEFAULT_USER;
-        const candidate: AuthUser = get().user ? stored : DEFAULT_USER;
-        if (login.trim() === candidate.login && password === candidate.password) {
-          set({ user: candidate, isAuthenticated: true });
-          return true;
-        }
-        return false;
-      },
-      logout: () => set({ isAuthenticated: false }),
-      updateProfile: ({ firstName, lastName }) => {
-        const u = get().user;
-        if (!u) return;
-        set({ user: { ...u, firstName, lastName } });
-      },
-      changeLogin: (newLogin) => {
-        const u = get().user;
-        if (!u) return;
-        set({ user: { ...u, login: newLogin } });
-      },
-      changePassword: (current, next) => {
-        const u = get().user;
-        if (!u) return false;
-        if (u.password !== current) return false;
-        set({ user: { ...u, password: next } });
-        return true;
-      },
-    }),
-    { name: "bb-auth" },
-  ),
-);
+const STORAGE_KEY = "bb-auth-v1";
+
+interface AuthData {
+  user: AuthUser;
+  isAuthenticated: boolean;
+}
+
+function load(): AuthData {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return { user: DEFAULT_USER, isAuthenticated: false };
+}
+
+let state: AuthData = load();
+const listeners = new Set<() => void>();
+
+function persist() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {}
+}
+function emit() {
+  persist();
+  listeners.forEach((l) => l());
+}
+
+export const authStore = {
+  subscribe(l: () => void) {
+    listeners.add(l);
+    return () => listeners.delete(l);
+  },
+  getSnapshot() {
+    return state;
+  },
+  login(login: string, password: string): boolean {
+    if (login.trim() === state.user.login && password === state.user.password) {
+      state = { ...state, isAuthenticated: true };
+      emit();
+      return true;
+    }
+    return false;
+  },
+  logout() {
+    state = { ...state, isAuthenticated: false };
+    emit();
+  },
+  updateProfile(firstName: string, lastName: string) {
+    state = { ...state, user: { ...state.user, firstName, lastName } };
+    emit();
+  },
+  changeLogin(newLogin: string) {
+    state = { ...state, user: { ...state.user, login: newLogin } };
+    emit();
+  },
+  changePassword(current: string, next: string): boolean {
+    if (state.user.password !== current) return false;
+    state = { ...state, user: { ...state.user, password: next } };
+    emit();
+    return true;
+  },
+};
+
+export function useAuth() {
+  return useSyncExternalStore(authStore.subscribe, authStore.getSnapshot, authStore.getSnapshot);
+}
