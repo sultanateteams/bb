@@ -601,7 +601,7 @@ export interface AddPaymentInput {
   sana?: string;
 }
 
-export function addPaymentToImport(input: AddPaymentInput) {
+export function addPaymentToImportLegacy(input: AddPaymentInput) {
   state.history = state.history.map((h) => {
     if (h.id !== input.historyId || h.qoldiq === undefined || h.qoldiq <= 0) return h;
 
@@ -627,7 +627,6 @@ export function addPaymentToImport(input: AddPaymentInput) {
     };
   });
 
-  // Create expense entry for the payment
   const importRecord = state.history.find((h) => h.id === input.historyId);
   if (importRecord) {
     const kredType = state.expenseTypes.find((t) => t.name === "Kreditorlik to'lovi");
@@ -637,6 +636,77 @@ export function addPaymentToImport(input: AddPaymentInput) {
         kredType.name,
         `Ta'minotchi to'lovi: ${importRecord.name} — ${input.summa} so'm`,
         input.summa,
+      );
+    }
+  }
+
+  emit();
+}
+
+// New unified payment action across xomashiyo/tm/wl imports
+export function addPaymentToImport(
+  importId: string,
+  importTuri: 'xomashiyo' | 'tm' | 'wl',
+  payment: {
+    summa: number;
+    usul: 'naqt' | 'plastik' | 'otkazma';
+    sana: string;
+    izoh?: string;
+  },
+) {
+  const numericId = Number(importId);
+  let matchedRecord: RawImportRecord | undefined;
+
+  state.history = state.history.map((h) => {
+    if (h.id !== numericId) return h;
+    // Match by import_turi if set, otherwise accept
+    if (h.import_turi && h.import_turi !== importTuri) return h;
+
+    const newTolangan = (h.tolangan_summa || 0) + payment.summa;
+    const newQoldiq = Math.max(0, (h.jami_summa || 0) - newTolangan);
+
+    let newStatus: PaymentStatus;
+    if (newQoldiq === 0) {
+      newStatus = "tolangan";
+    } else if (newTolangan > 0) {
+      newStatus = "qisman";
+    } else {
+      newStatus = "tolanmagan";
+    }
+
+    const newPayment: PaymentRecord = {
+      id: `pay-${Date.now()}`,
+      sana: payment.sana,
+      summa: payment.summa,
+      usul: payment.usul,
+      izoh: payment.izoh || "",
+    };
+
+    const updated = {
+      ...h,
+      tolangan_summa: newTolangan,
+      qoldiq: newQoldiq,
+      tolov_holati: newStatus,
+      tolov_usuli: payment.usul,
+      tolov_tarixi: [...(h.tolov_tarixi || []), newPayment],
+    };
+    matchedRecord = updated;
+    return updated;
+  });
+
+  // Create chiqim entry
+  if (matchedRecord) {
+    const supplier = state.suppliers.find((s) => s.id === matchedRecord!.tamirotchi_id);
+    const taminotchiNomi = supplier ? supplier.nomi : "Noma'lum";
+    const mahsulotNomi = matchedRecord.name;
+
+    const kredType = state.expenseTypes.find((t) => t.name === "Kreditorlik to'lovi");
+    if (kredType) {
+      addExpense(
+        kredType.id,
+        kredType.name,
+        `Ta'minotchi to'lovi: ${taminotchiNomi} — ${mahsulotNomi}`,
+        payment.summa,
       );
     }
   }
