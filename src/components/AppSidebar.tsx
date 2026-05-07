@@ -1,12 +1,32 @@
 import {
-  LayoutDashboard, Warehouse, Factory, Package, ShoppingCart, ArrowDownToLine,
-  ArrowUpFromLine, Boxes, Sprout, UserCog, Building2, Store, UserRound, Truck,
-  Settings, CreditCard,
+  LayoutDashboard,
+  Warehouse,
+  Factory,
+  Package,
+  ShoppingCart,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Boxes,
+  Sprout,
+  UserCog,
+  Building2,
+  Store,
+  UserRound,
+  Truck,
+  Settings,
+  CreditCard,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
-  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
-  SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar,
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { getKreditorlikList, useOmborStore } from "@/lib/omborStore";
 
@@ -38,40 +58,56 @@ const partners = [
   { title: "Haydovchi", url: "/haydovchi", icon: Truck },
 ];
 
-const settings = [
-  { title: "Sozlamalar", url: "/sozlamalar", icon: Settings },
-];
+const settings = [{ title: "Sozlamalar", url: "/sozlamalar", icon: Settings }];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { pathname } = useLocation();
-  const isActive = (path: string) => path === "/" ? pathname === "/" : pathname.startsWith(path);
+  const isActive = (path: string) =>
+    path === "/" ? pathname === "/" : pathname.startsWith(path);
 
   // Overdue kreditorlik count
   const history = useOmborStore((s) => s.history);
   const overdueCount = history.filter((r) => {
-    if (!r.qoldiq || r.qoldiq <= 0 || r.tolov_holati === "tolangan") return false;
+    if (!r.qoldiq || r.qoldiq <= 0 || r.tolov_holati === "tolangan")
+      return false;
     if (!r.tolov_muddati) return false;
     const parts = r.tolov_muddati.split(".");
     if (parts.length !== 3) return false;
-    const deadline = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+    const deadline = new Date(
+      Number(parts[2]),
+      Number(parts[1]) - 1,
+      Number(parts[0]),
+    );
     return deadline < new Date();
   }).length;
 
   const renderGroup = (label: string, items: typeof operations) => (
     <SidebarGroup>
-      {!collapsed && <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-sidebar-foreground/50 px-3">{label}</SidebarGroupLabel>}
+      {!collapsed && (
+        <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-sidebar-foreground/50 px-3">
+          {label}
+        </SidebarGroupLabel>
+      )}
       <SidebarGroupContent>
         <SidebarMenu>
           {items.map((item) => (
             <SidebarMenuItem key={item.url}>
-              <SidebarMenuButton asChild isActive={isActive(item.url)} className="data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground data-[active=true]:font-medium hover:bg-sidebar-accent/60">
-                <NavLink to={item.url} end={item.url === "/"} className="relative">
+              <SidebarMenuButton
+                asChild
+                isActive={isActive(item.url)}
+                className="data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground data-[active=true]:font-medium hover:bg-sidebar-accent/60"
+              >
+                <NavLink
+                  to={item.url}
+                  end={item.url === "/"}
+                  className="relative"
+                >
                   <item.icon className="h-4 w-4 shrink-0" />
                   {!collapsed && <span className="truncate">{item.title}</span>}
                   {item.url === "/kreditorlik" && overdueCount > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                    <span className="absolute top-2 right-3 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
                       {overdueCount}
                     </span>
                   )}
@@ -87,11 +123,17 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <div className="flex items-center gap-2 px-4 h-14 border-b border-sidebar-border">
-        <div className="h-8 w-8 rounded-md bg-gradient-brand flex items-center justify-center text-primary-foreground font-bold text-sm shrink-0">B</div>
+        <div className="h-8 w-8 rounded-md bg-gradient-brand flex items-center justify-center text-primary-foreground font-bold text-sm shrink-0">
+          B
+        </div>
         {!collapsed && (
           <div className="flex flex-col leading-tight min-w-0">
-            <span className="text-sidebar-accent-foreground font-semibold text-sm truncate">Biznes Boshqaruv</span>
-            <span className="text-sidebar-foreground/60 text-[11px]">ICH · WL · TM</span>
+            <span className="text-sidebar-accent-foreground font-semibold text-sm truncate">
+              Biznes Boshqaruv
+            </span>
+            <span className="text-sidebar-foreground/60 text-[11px]">
+              ICH · WL · TM
+            </span>
           </div>
         )}
       </div>

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { authStore, useAuth } from "@/lib/authStore";
+import { useAuthStore, useAuth } from "@/store/useAuthStore";
 import { PageHeader } from "@/components/PageHeader";
 
 export default function Profile() {
@@ -31,7 +31,7 @@ export default function Profile() {
       toast.error("Ism va familiya bo'sh bo'lmasligi kerak");
       return;
     }
-    authStore.updateProfile(firstName.trim(), lastName.trim());
+    useAuthStore.getState().updateProfile(firstName.trim(), lastName.trim());
     toast.success("Ma'lumotlar saqlandi");
   };
 
@@ -46,7 +46,7 @@ export default function Profile() {
       setLoginErr("Loginlar mos kelmadi");
       return;
     }
-    authStore.changeLogin(newLogin.trim());
+    useAuthStore.getState().changeLogin(newLogin.trim());
     setNewLogin("");
     setConfirmLogin("");
     toast.success("Login muvaffaqiyatli o'zgartirildi");
@@ -63,7 +63,7 @@ export default function Profile() {
       setPwdErr("Parollar mos kelmadi");
       return;
     }
-    const ok = authStore.changePassword(currentPwd, newPwd);
+    const ok = useAuthStore.getState().changePassword(currentPwd, newPwd);
     if (!ok) {
       setPwdErr("Joriy parol noto'g'ri");
       return;

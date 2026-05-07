@@ -9,7 +9,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { authStore, useAuth } from "@/lib/authStore";
+import { useAuthStore, useAuth } from "@/store/useAuthStore";
 
 export default function AppLayout() {
   const { user } = useAuth();
@@ -17,7 +17,7 @@ export default function AppLayout() {
   const initials = `${user.firstName[0] ?? ""}${user.lastName[0] ?? ""}`.toUpperCase() || "U";
 
   const handleLogout = () => {
-    authStore.logout();
+    useAuthStore.getState().logout();
     navigate("/login", { replace: true });
   };
 

@@ -10,7 +10,7 @@ export interface AuthUser {
 
 const DEFAULT_USER: AuthUser = {
   login: "admin",
-  password: "admin123",
+  password: "testtest",
   firstName: "Admin",
   lastName: "Foydalanuvchi",
   role: "CEO",
