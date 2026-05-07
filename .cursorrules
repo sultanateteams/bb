@@ -1,0 +1,41 @@
+# ═══════════════════════════════════════════════════════════
+# 🏛️ Cline Core Directives — UZ-GAS-TRADE
+# ═══════════════════════════════════════════════════════════
+# Holati: MAJBURIY
+# Ushbu fayl Cline tomonidan har bir sessiyada avtomatik o'qiladi.
+# ═══════════════════════════════════════════════════════════
+
+🔴 KRITIK: 4-LAYER API ARXITEKTURASI (HEECH QACHON BUZILMASLIGI KERAK)
+   Infrastructure (httpClient.ts) → Service (*.service.ts) → Hook (*.hooks.ts) → UI Component
+   
+   🚫 TA'QIQLANADI:
+      - Component ichida httpClient/axios chaqirish
+      - Service ichida React hook (useAuthStore) import qilish
+      - Server ma'lumotlarini Zustand persist da saqlash
+      - Raw hex ranglar ishlatish (CSS variable ishlat)
+   
+   ✅ TO'G'RI:
+      - Component → Hook → Service → httpClient
+      - Ma'lumot transformatsiyasi Service layerda
+      - TS interface hamma API request/response uchun
+
+📋 MAJBURIY TEXNOLOGIYALAR:
+   - Server State: @tanstack/react-query (useQuery/useMutation)
+   - Client State: Zustand + persist middleware (src/store/)
+   - Forms: react-hook-form + zod validation
+   - Icons: lucide-react
+   - Styling: Tailwind CSS (faqat CSS variables bg-background, text-foreground va h.k.)
+   - UI: shadcn/ui (@/components/ui/*)
+   - HTTP: axios (faqat src/services/httpClient.ts orqali)
+   - Routing: react-router-dom
+
+📁 FILE NAMING:
+   - kebab-case: employee.service.ts, auth.hooks.ts, new-order-dialog.tsx
+   - Domain guruhlash: src/pages/<Domain>/{index.tsx, types.ts, components/}
+
+📚 SESSIYA BOSHLANGANDA:
+   1. AVVAL AI_GUIDELINES.md ni o'qi (to'liq qoidalar uchun)
+   2. Keyin vazifani bajarishga kirish
+   3. Har bir kod yozishdan oldin 5.1 Pre-Task Verification checklist ni bajar
+
+⚠️ BU QOIDALARGA AMAL QILMASLIK = PR REJECT
