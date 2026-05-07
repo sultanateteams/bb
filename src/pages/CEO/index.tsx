@@ -5,61 +5,37 @@ import { EmployeeModal } from "./components/EmployeeModal";
 import { DeleteConfirmDialog } from "./components/DeleteConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
 import type { Employee } from "./types";
-import { queryClient } from "@/lib/query-client";
-import { useApiMutation, useApiQuery } from "@/hooks/use-api-query";
+import {
+  useEmployeesQuery,
+  useUpsertEmployeeMutation,
+  useDeleteEmployeeMutation,
+} from "@/hooks/api/employee.hooks";
 
 export function CEO() {
   const { toast } = useToast();
 
-  // 1. Ma'lumotlarni API'dan olish (GET)
-  const { data: apiResponse, isLoading } = useApiQuery<Employee[]>(
-    ["employees"],
-    "/users", // Backend endpointingiz
-  );
-
-  // API response ichidagi resultni olish
+  // ── Data fetching ──────────────────────────────────────────────
+  const { data: apiResponse, isLoading } = useEmployeesQuery();
   const employees = apiResponse?.result || [];
 
-  // 2. Ma'lumot qo'shish/tahrirlash uchun Mutation
-  const { mutate: upsertEmployee } = useApiMutation<Employee, any>(
-    "post",
-    "/site/employees",
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["employees"] });
-        setIsModalOpen(false);
-        toast({ title: "Muvaffaqiyat", description: "Ma'lumotlar saqlandi" });
-      },
-    },
-  );
+  // ── Mutations ──────────────────────────────────────────────────
+  const { mutate: upsertEmployee, isPending: isUpserting } =
+    useUpsertEmployeeMutation();
+  const { mutate: deleteEmployee, isPending: isDeleting } =
+    useDeleteEmployeeMutation();
 
-  // 3. Ma'lumot o'chirish uchun Mutation
-  const { mutate: deleteEmployee, isPending: isDeleting } = useApiMutation<
-    any,
-    any
-  >(
-    "delete",
-    "/site/employees", // Odatda /employees/:id bo'ladi, API'ga qarab moslang
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["employees"] });
-        setIsDeleteDialogOpen(false);
-        toast({ title: "Muvaffaqiyat", description: "Hodim o'chirildi" });
-      },
-    },
-  );
-
-  // Modal states
+  // ── Modal states ───────────────────────────────────────────────
   const [modalMode, setModalMode] = useState<"add" | "edit">("add");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
 
-  // Delete states
+  // ── Delete states ──────────────────────────────────────────────
   const [deletingEmployee, setDeletingEmployee] = useState<Employee | null>(
     null,
   );
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
+  // ── Handlers ───────────────────────────────────────────────────
   const handleAdd = () => {
     setModalMode("add");
     setEditingEmployee(null);
@@ -78,13 +54,31 @@ export function CEO() {
   };
 
   const handleModalSuccess = (formData: any) => {
-    // API'ga yuborish (Add yoki Edit uchun bitta endpoint yoki shart qo'shish mumkin)
-    upsertEmployee(formData);
+    upsertEmployee(formData, {
+      onSuccess: () => {
+        setIsModalOpen(false);
+        toast({
+          title: "Muvaffaqiyat",
+          description: "Ma'lumotlar saqlandi",
+        });
+      },
+    });
   };
 
   const handleDeleteConfirm = () => {
     if (!deletingEmployee) return;
-    deleteEmployee({ id: deletingEmployee.id });
+    deleteEmployee(
+      { id: deletingEmployee.id },
+      {
+        onSuccess: () => {
+          setIsDeleteDialogOpen(false);
+          toast({
+            title: "Muvaffaqiyat",
+            description: "Hodim o'chirildi",
+          });
+        },
+      },
+    );
   };
 
   return (
