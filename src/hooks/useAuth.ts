@@ -38,6 +38,7 @@ export const useLogin = () => {
       console.log("Login payload:", payload); // Debug log for login payload
       console.log("API URL:", apiClient.defaults.baseURL); // Debug log for API URL
       console.log("API Headers:", import.meta.env.VITE_APP_API); // Debug log for API headers
+      console.log("API Headers:", import.meta.env); // Debug log for API headers
 
       const { data } = await apiClient.post<ApiResponse<ApiLoginResponse>>(
         "/site/auth",
