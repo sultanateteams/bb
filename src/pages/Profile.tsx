@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuthStore, useAuth } from "@/store/useAuthStore";
 import { PageHeader } from "@/components/PageHeader";
 
+
 export default function Profile() {
   const { user } = useAuth();
 
