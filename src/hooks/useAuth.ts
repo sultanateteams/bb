@@ -1,7 +1,12 @@
 import { useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { apiClient } from "@/lib/axios";
-import { LoginRequest, LoginResult, ApiLoginResponse, AuthUser } from "@/types/auth";
+import {
+  LoginRequest,
+  LoginResult,
+  ApiLoginResponse,
+  AuthUser,
+} from "@/types/auth";
 import { ApiError, ApiResponse } from "@/types/api";
 import { useAuthStore } from "@/store/useAuthStore";
 
@@ -30,7 +35,12 @@ export const useLogin = () => {
 
   return useMutation<ApiResponse<LoginResult>, ApiError, LoginRequest>({
     mutationFn: async (payload) => {
-      const { data } = await apiClient.post<ApiResponse<ApiLoginResponse>>("/site/auth", payload);
+      console.log("Login payload:", payload); // Debug log for login payload
+      console.log("API URL:", apiClient.defaults.baseURL); // Debug log for API URL
+      const { data } = await apiClient.post<ApiResponse<ApiLoginResponse>>(
+        "/site/auth",
+        payload,
+      );
       // Transform the API response to our internal format
       const transformedResult = transformApiLoginResponse(data.result);
       return {
@@ -40,7 +50,11 @@ export const useLogin = () => {
     },
     onSuccess: (data) => {
       const { access_token, refresh_token, user } = data.result;
-      setCredentials({ token: access_token, refreshToken: refresh_token, user });
+      setCredentials({
+        token: access_token,
+        refreshToken: refresh_token,
+        user,
+      });
       navigate("/dashboard", { replace: true });
     },
   });

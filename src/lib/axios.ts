@@ -4,6 +4,7 @@ import { ApiError, ApiResponse } from "@/types/api";
 import { RefreshResult } from "@/types/auth";
 
 const API_URL = import.meta.env.VITE_APP_API || "http://localhost:3000";
+console.log(import.meta.env.VITE_APP_API);
 
 let isRefreshing = false;
 
@@ -23,7 +24,10 @@ const processQueue = (error: ApiError | null, token: string | null = null) => {
 };
 
 const createApiError = (error: AxiosError<any>): ApiError => ({
-  message: error.response?.data?.message || error.message || "Noma'lum xatolik yuz berdi",
+  message:
+    error.response?.data?.message ||
+    error.message ||
+    "Noma'lum xatolik yuz berdi",
   status: error.response?.status,
   errors: error.response?.data?.errors,
 });
@@ -79,7 +83,9 @@ apiClient.interceptors.response.use(
     return response;
   },
   async (error: AxiosError<any>) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const originalRequest = error.config as InternalAxiosRequestConfig & {
+      _retry?: boolean;
+    };
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       const refreshToken = getRefreshToken();
@@ -108,17 +114,25 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const { data } = await axios.post<ApiResponse<RefreshResult>>(`${API_URL}/auth/refresh`, {
-          refresh_token: refreshToken,
-        }, {
-          headers: {
-            "Content-Type": "application/json",
-            "Accept-Language": "uz",
+        const { data } = await axios.post<ApiResponse<RefreshResult>>(
+          `${API_URL}/auth/refresh`,
+          {
+            refresh_token: refreshToken,
           },
-        });
+          {
+            headers: {
+              "Content-Type": "application/json",
+              "Accept-Language": "uz",
+            },
+          },
+        );
 
         const { access_token, refresh_token, user } = data.result;
-        authStore.getState().setCredentials({ token: access_token, refreshToken: refresh_token, user });
+        authStore.getState().setCredentials({
+          token: access_token,
+          refreshToken: refresh_token,
+          user,
+        });
         processQueue(null, access_token);
 
         if (originalRequest.headers) {
