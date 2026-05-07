@@ -41,8 +41,12 @@ export default function Login() {
           <div className="h-14 w-14 rounded-xl bg-gradient-brand flex items-center justify-center text-primary-foreground mb-3">
             <Building2 className="h-7 w-7" />
           </div>
-          <h1 className="text-xl font-semibold tracking-tight">Biznes Boshqaruv Tizimi</h1>
-          <p className="text-sm text-muted-foreground mt-1">Hisobingizga kiring</p>
+          <h1 className="text-xl font-semibold tracking-tight">
+            Biznes Boshqaruv Tizimi
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Hisobingizga kiring
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -77,7 +81,11 @@ export default function Login() {
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground"
                 tabIndex={-1}
               >
-                {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showPwd ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
               </button>
             </div>
           </div>
@@ -94,14 +102,18 @@ export default function Login() {
           </Button>
 
           <div className="text-center">
-            <button type="button" className="text-xs text-muted-foreground hover:text-primary">
+            <button
+              type="button"
+              className="text-xs text-muted-foreground hover:text-primary"
+            >
               Parolni unutdingizmi?
             </button>
           </div>
         </form>
 
         <div className="mt-6 pt-4 border-t text-[11px] text-muted-foreground text-center">
-          Demo: <code className="font-mono">admin</code> / <code className="font-mono">admin123</code>
+          Demo: <code className="font-mono">admin</code> /{" "}
+          <code className="font-mono">admin123</code>
         </div>
       </Card>
     </div>
