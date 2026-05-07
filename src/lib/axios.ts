@@ -4,7 +4,6 @@ import { ApiError, ApiResponse } from "@/types/api";
 import { RefreshResult } from "@/types/auth";
 
 const API_URL = import.meta.env.VITE_APP_API || "http://localhost:3000";
-console.log(import.meta.env.VITE_APP_API);
 
 let isRefreshing = false;
 
@@ -48,11 +47,17 @@ const getRefreshToken = () => {
   }
 };
 
-export const apiClient = axios.create({
-  baseURL: API_URL,
-  timeout: 30000,
-  headers: { "Content-Type": "application/json", "Accept-Language": "uz" },
-});
+export const apiClient = () => {
+  console.log("Creating API client with base URL:", API_URL); // Debug log for API client creation
+  console.log(import.meta.env.VITE_APP_API);
+  console.log(import.meta.env);
+
+  return axios.create({
+    baseURL: API_URL,
+    timeout: 30000,
+    headers: { "Content-Type": "application/json", "Accept-Language": "uz" },
+  });
+};
 
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = getAuthToken();
