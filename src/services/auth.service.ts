@@ -1,47 +1,59 @@
 import { httpClient } from "@/services/httpClient";
-import {
-  LoginRequest,
-  LoginResult,
-  ApiLoginResponse,
-  AuthUser,
-} from "@/types/auth";
+import { LoginRequest, LoginResult, AuthUser } from "@/types/auth";
 import { ApiResponse } from "@/types/api";
 
-/**
- * Transform raw API login response to internal auth format
- */
-function transformApiLoginResponse(apiResponse: ApiLoginResponse): LoginResult {
-  const user: AuthUser = {
-    id: apiResponse.user_id,
-    firstName: apiResponse.first_name,
-    lastName: apiResponse.last_name,
-    avatar: apiResponse.avatar,
-    user_type: apiResponse.user_type,
+type BackendSignInData = {
+  user: {
+    id: number;
+    first_name: string;
+    last_name: string;
+    middle_name?: string | null;
+    role: string;
+    is_active: boolean;
+    login?: string | null;
+    phone?: string | null;
   };
+  token: string;
+};
 
-  return {
-    access_token: apiResponse.token,
-    refresh_token: "", // API doesn't return refresh token
-    user,
-  };
-}
+type BackendSignInResp = {
+  data: BackendSignInData;
+  status: number;
+  message?: string;
+  error?: string;
+};
 
 /**
- * Authenticate user with login/password
- * POST /site/auth
+ * POST /auth/sign-in
+ * Backend response: { data: { user: UserResp, token: string }, status: 200 }
  */
 export async function login(
   payload: LoginRequest,
 ): Promise<ApiResponse<LoginResult>> {
-  const { data } = await httpClient.post<ApiResponse<ApiLoginResponse>>(
-    "/site/auth",
-    payload,
-  );
+  const { data } = await httpClient.post<BackendSignInResp>("/auth/sign-in", {
+    login: payload.login,
+    password: payload.password,
+  });
 
-  const transformedResult = transformApiLoginResponse(data.result);
+  if (data.error || !data.data) {
+    throw { message: data.error || "Login xatolik", status: data.status };
+  }
+
+  const rawUser = data.data.user;
+  const user: AuthUser = {
+    id: rawUser.id,
+    firstName: rawUser.first_name,
+    lastName: rawUser.last_name,
+    role: rawUser.role,
+    user_type: rawUser.role,
+  };
 
   return {
-    ...data,
-    result: transformedResult,
+    success: true,
+    result: {
+      access_token: data.data.token,
+      refresh_token: "",
+      user,
+    },
   };
 }

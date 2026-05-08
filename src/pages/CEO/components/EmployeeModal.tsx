@@ -12,7 +12,7 @@ interface EmployeeModalProps {
   mode: 'add' | 'edit';
   initialData?: Employee | null;
   onClose: () => void;
-  onSuccess: (employee: Employee) => void;
+  onSuccess: (employee: Partial<Employee>) => void;
 }
 
 const validateForm = (data: EmployeeFormData): string[] => {
@@ -20,9 +20,9 @@ const validateForm = (data: EmployeeFormData): string[] => {
   if (!data.firstName.trim() || data.firstName.length < 2) errors.push("Ismi kamida 2 harf bo'lishi kerak");
   if (!data.lastName.trim() || data.lastName.length < 2) errors.push("Familiyasi kamida 2 harf bo'lishi kerak");
   if (!data.pinfl || data.pinfl.length !== 14 || !/^\d+$/.test(data.pinfl)) errors.push("PINFL aynan 14 ta raqam bo'lishi kerak");
-  if (!data.phone || !/^\+998 \d{2} \d{3} \d{2} \d{2}$/.test(data.phone)) errors.push("Telefon +998 XX XXX XX XX formatda bo'lishi kerak");
+  // if (!data.phone || !/^\+998 \d{2} \d{3} \d{2} \d{2}$/.test(data.phone)) errors.push("Telefon +998 XX XXX XX XX formatda bo'lishi kerak");
   if (!data.position.trim() || data.position.length < 2) errors.push("Lavozimi kamida 2 harf bo'lishi kerak");
-  if (data.systemLogin && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.systemLogin)) errors.push("Email noto'g'ri formatda");
+  if (data.systemLogin && data.systemLogin.length < 2) errors.push("Login kamida 2 belgi bo'lishi kerak");
   return errors;
 };
 
@@ -85,8 +85,8 @@ export function EmployeeModal({ isOpen, mode, initialData, onClose, onSuccess }:
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      const newEmployee: Employee = {
-        id: mode === 'add' ? Date.now() : initialData!.id,
+      const newEmployee: Partial<Employee> = {
+        ...(mode === "edit" && initialData ? { id: initialData.id } : {}),
         firstName: formData.firstName,
         lastName: formData.lastName,
         middleName: formData.middleName || undefined,
@@ -180,13 +180,13 @@ export function EmployeeModal({ isOpen, mode, initialData, onClose, onSuccess }:
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="systemLogin">Tizim login (email)</Label>
+            <Label htmlFor="systemLogin">Tizim login</Label>
             <Input
               id="systemLogin"
-              type="email"
+              type="text"
               value={formData.systemLogin}
               onChange={(e) => setFormData({ ...formData, systemLogin: e.target.value })}
-              placeholder="email@domain.com (ixtiyoriy)"
+              placeholder="login"
             />
           </div>
           {showRoleField && (

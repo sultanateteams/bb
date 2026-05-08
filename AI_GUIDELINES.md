@@ -470,7 +470,7 @@ Every new service function, complex utility, and hook MUST include JSDoc:
  * @throws ApiError on network or server errors
  */
 export async function getEmployees(): Promise<ApiResponse<Employee[]>> {
-  const { data } = await httpClient.get<ApiResponse<Employee[]>>("/admin/users");
+  const { data } = await httpClient.get<ApiResponse<Employee[]>>("/users");
   return data;
 }
 ```

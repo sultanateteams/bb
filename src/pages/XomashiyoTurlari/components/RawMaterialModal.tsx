@@ -12,6 +12,7 @@ interface RawMaterialModalProps {
   isOpen: boolean;
   mode: ModalMode;
   initialData?: RawMaterial | null;
+  isSaving?: boolean;
   onClose: () => void;
   onSuccess: (item: RawMaterial) => void;
 }
@@ -28,80 +29,61 @@ const validateForm = (data: RawMaterialFormData): string[] => {
   return errors;
 };
 
-export function RawMaterialModal({ isOpen, mode, initialData, onClose, onSuccess }: RawMaterialModalProps) {
+export function RawMaterialModal({
+  isOpen,
+  mode,
+  initialData,
+  isSaving = false,
+  onClose,
+  onSuccess,
+}: RawMaterialModalProps) {
   const { toast } = useToast();
-  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<RawMaterialFormData>({
-    name: '',
-    type: '',
-    unit: '',
-    defaultPrice: '',
-    minStock: '',
-    description: '',
+    name: "",
+    type: "",
+    unit: "",
+    defaultPrice: "",
+    minStock: "",
+    description: "",
   });
 
   useEffect(() => {
     if (isOpen) {
-      if (mode === 'edit' && initialData) {
+      if (mode === "edit" && initialData) {
         setFormData({
           name: initialData.name,
           type: initialData.type,
           unit: initialData.unit,
           defaultPrice: initialData.defaultPrice.toString(),
           minStock: initialData.minStock.toString(),
-          description: initialData.description || '',
+          description: initialData.description || "",
         });
       } else {
-        setFormData({
-          name: '',
-          type: '',
-          unit: '',
-          defaultPrice: '',
-          minStock: '',
-          description: '',
-        });
+        setFormData({ name: "", type: "", unit: "", defaultPrice: "", minStock: "", description: "" });
       }
     }
   }, [isOpen, mode, initialData]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const errors = validateForm(formData);
     if (errors.length > 0) {
-      toast({
-        title: "Xatolik",
-        description: errors.join(", "),
-        variant: "destructive",
-      });
+      toast({ title: "Xatolik", description: errors.join(", "), variant: "destructive" });
       return;
     }
 
-    setIsSaving(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+    const item: RawMaterial = {
+      id: mode === "edit" ? initialData!.id : "0",
+      name: formData.name.trim(),
+      type: formData.type as "ICH" | "WL",
+      unit: formData.unit as RawMaterial["unit"],
+      defaultPrice: Number(formData.defaultPrice),
+      minStock: Number(formData.minStock),
+      description: formData.description.trim() || undefined,
+      createdAt: mode === "edit" ? initialData!.createdAt : new Date().toISOString().slice(0, 10),
+    };
 
-      const newItem: RawMaterial = {
-        id: mode === 'add' ? Date.now().toString() : initialData!.id,
-        name: formData.name,
-        type: formData.type as 'ICH' | 'WL',
-        unit: formData.unit as 'kg' | 'litre' | 'dona',
-        defaultPrice: Number(formData.defaultPrice),
-        minStock: Number(formData.minStock),
-        description: formData.description,
-        createdAt: mode === 'add' ? new Date().toISOString().slice(0, 10) : initialData!.createdAt,
-      };
-
-      onSuccess(newItem);
-    } catch (error) {
-      toast({
-        title: "Xatolik",
-        description: "Saqlashda xatolik yuz berdi",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSaving(false);
-    }
+    onSuccess(item);
   };
 
   return (
@@ -109,25 +91,23 @@ export function RawMaterialModal({ isOpen, mode, initialData, onClose, onSuccess
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>
-            {mode === 'add' ? "Yangi xomashiyo qo'shish" : "Xomashiyoni tahrirlash"}
+            {mode === "add" ? "Yangi xomashiyo qo'shish" : "Xomashiyoni tahrirlash"}
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Nomi</Label>
+            <Label htmlFor="rm-name">Nomi</Label>
             <Input
-              id="name"
+              id="rm-name"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="Xomashiyo nomi"
             />
           </div>
+
           <div className="space-y-2">
-            <Label htmlFor="type">Turi</Label>
-            <Select
-              value={formData.type}
-              onValueChange={(value) => setFormData({ ...formData, type: value })}
-            >
+            <Label htmlFor="rm-type">Turi</Label>
+            <Select value={formData.type} onValueChange={(v) => setFormData({ ...formData, type: v })}>
               <SelectTrigger>
                 <SelectValue placeholder="Tanlang" />
               </SelectTrigger>
@@ -137,12 +117,10 @@ export function RawMaterialModal({ isOpen, mode, initialData, onClose, onSuccess
               </SelectContent>
             </Select>
           </div>
+
           <div className="space-y-2">
-            <Label htmlFor="unit">O'lchov birligi</Label>
-            <Select
-              value={formData.unit}
-              onValueChange={(value) => setFormData({ ...formData, unit: value })}
-            >
+            <Label htmlFor="rm-unit">O'lchov birligi</Label>
+            <Select value={formData.unit} onValueChange={(v) => setFormData({ ...formData, unit: v })}>
               <SelectTrigger>
                 <SelectValue placeholder="Tanlang" />
               </SelectTrigger>
@@ -153,37 +131,43 @@ export function RawMaterialModal({ isOpen, mode, initialData, onClose, onSuccess
               </SelectContent>
             </Select>
           </div>
+
           <div className="space-y-2">
-            <Label htmlFor="defaultPrice">Standart narxi (so'm)</Label>
+            <Label htmlFor="rm-price">Standart narxi (so'm)</Label>
             <Input
-              id="defaultPrice"
+              id="rm-price"
               type="number"
+              min={0}
               value={formData.defaultPrice}
               onChange={(e) => setFormData({ ...formData, defaultPrice: e.target.value })}
               placeholder="0"
             />
           </div>
+
           <div className="space-y-2">
-            <Label htmlFor="minStock">Minimum qoldiq</Label>
+            <Label htmlFor="rm-min">Minimum qoldiq</Label>
             <Input
-              id="minStock"
+              id="rm-min"
               type="number"
+              min={0}
               value={formData.minStock}
               onChange={(e) => setFormData({ ...formData, minStock: e.target.value })}
               placeholder="0"
             />
           </div>
+
           <div className="space-y-2">
-            <Label htmlFor="description">Izoh</Label>
+            <Label htmlFor="rm-desc">Izoh</Label>
             <Textarea
-              id="description"
+              id="rm-desc"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               placeholder="Ixtiyoriy"
             />
           </div>
+
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={onClose}>
+            <Button type="button" variant="ghost" onClick={onClose} disabled={isSaving}>
               Bekor qilish
             </Button>
             <Button type="submit" disabled={isSaving}>

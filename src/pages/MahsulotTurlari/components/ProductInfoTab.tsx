@@ -60,6 +60,25 @@ export function ProductInfoTab({ product, onChange }: Props) {
           onChange={(event) => onChange({ ...product, minStock: Number(event.target.value) })}
         />
       </div>
+
+      {product.type === "TM" && (
+        <div>
+          <Label>Upakofkadagi dona soni</Label>
+          <Input
+            type="number"
+            min={1}
+            value={product.innerQty ?? ""}
+            onChange={(event) =>
+              onChange({
+                ...product,
+                innerQty: event.target.value === "" ? undefined : Number(event.target.value),
+              })
+            }
+            placeholder="12 (ixtiyoriy)"
+          />
+        </div>
+      )}
+
       <div>
         <Label>Izoh</Label>
         <Textarea

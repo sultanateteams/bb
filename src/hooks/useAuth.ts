@@ -17,10 +17,9 @@ export const useLogin = () => {
     mutationFn: login,
 
     onSuccess: (data) => {
-      console.log("Login successful:", data);
       const { access_token, refresh_token, user } = data.result;
       setCredentials({
-        token: data?.token || access_token,
+        token: access_token,
         refreshToken: refresh_token,
         user,
       });

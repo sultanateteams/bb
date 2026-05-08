@@ -9,6 +9,8 @@ export interface Product {
   type: ProductType;
   unit: ProductUnit;
   minStock: number;
+  innerQty?: number;
+  isActive?: boolean;
   description?: string;
   createdAt: string;
 }

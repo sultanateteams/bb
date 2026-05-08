@@ -21,6 +21,7 @@ export function AddProductModal({ open, onOpenChange, onCreate }: Props) {
   const [type, setType] = useState<ProductType>("ICH");
   const [unit, setUnit] = useState<ProductUnit>("dona");
   const [minStock, setMinStock] = useState(0);
+  const [innerQty, setInnerQty] = useState<number | "">("");
   const [description, setDescription] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -30,6 +31,7 @@ export function AddProductModal({ open, onOpenChange, onCreate }: Props) {
       setType("ICH");
       setUnit("dona");
       setMinStock(0);
+      setInnerQty("");
       setDescription("");
       setIsSaving(false);
     }
@@ -39,12 +41,13 @@ export function AddProductModal({ open, onOpenChange, onCreate }: Props) {
     if (!name.trim() || !minStock) return;
     setIsSaving(true);
     const product: Product = {
-      id: Date.now().toString(),
+      id: "0",
       name: name.trim(),
       type,
       unit,
       minStock,
-      description: description.trim(),
+      innerQty: type === "TM" && innerQty !== "" ? Number(innerQty) : undefined,
+      description: description.trim() || undefined,
       createdAt: new Date().toISOString().slice(0, 10),
     };
 
@@ -108,6 +111,19 @@ export function AddProductModal({ open, onOpenChange, onCreate }: Props) {
               placeholder="10"
             />
           </div>
+
+          {type === "TM" && (
+            <div>
+              <Label>Upakofkadagi dona soni</Label>
+              <Input
+                type="number"
+                min={1}
+                value={innerQty}
+                onChange={(event) => setInnerQty(event.target.value === "" ? "" : Number(event.target.value))}
+                placeholder="12 (ixtiyoriy)"
+              />
+            </div>
+          )}
 
           <div>
             <Label>Izoh</Label>

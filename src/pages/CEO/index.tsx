@@ -16,7 +16,7 @@ export function CEO() {
 
   // ── Data fetching ──────────────────────────────────────────────
   const { data: apiResponse, isLoading } = useEmployeesQuery();
-  const employees = apiResponse?.result || [];
+  const employees = apiResponse?.data || [];
 
   // ── Mutations ──────────────────────────────────────────────────
   const { mutate: upsertEmployee, isPending: isUpserting } =
@@ -53,7 +53,7 @@ export function CEO() {
     setIsDeleteDialogOpen(true);
   };
 
-  const handleModalSuccess = (formData: any) => {
+  const handleModalSuccess = (formData: Partial<Employee>) => {
     upsertEmployee(formData, {
       onSuccess: () => {
         setIsModalOpen(false);

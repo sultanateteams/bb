@@ -6,7 +6,7 @@ interface Employee {
   pinfl: string;           // 14 raqamli PINFL
   phone: string;           // Telefon
   position: string;        // Lavozimi
-  systemLogin?: string;    // Email (ixtiyoriy)
+  systemLogin?: string;    // Login (ixtiyoriy)
   role?: 'Admin' | 'Operator'; // faqat systemLogin bo'lsa
 }
 

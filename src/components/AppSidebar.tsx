@@ -47,11 +47,11 @@ const finance = [
 const catalogs = [
   { title: "Mahsulot turlari", url: "/mahsulot-turlari", icon: Boxes },
   { title: "Xomashiyo turlari", url: "/xomashiyo-turlari", icon: Sprout },
-  { title: "Ta'minotchilar", url: "/tamirotchilar", icon: Truck },
 ];
 
 const partners = [
   { title: "CEO (Hodimlar)", url: "/ceo", icon: UserCog },
+  { title: "Ta'minotchilar", url: "/tamirotchilar", icon: Truck },
   { title: "Diler", url: "/diler", icon: Building2 },
   { title: "Do'kon", url: "/dokon", icon: Store },
   { title: "Savdo vakili", url: "/savdo-vakili", icon: UserRound },

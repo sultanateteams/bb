@@ -74,10 +74,11 @@ httpClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 httpClient.interceptors.response.use(
   (response) => {
     const data = response.data as any;
-    if (data?.code && data.code >= 400) {
+    // Backend { data, status, error } formatida javob qaytaradi
+    if (data?.error && data?.status && data.status >= 400) {
       const error: ApiError = {
-        message: data.message || "Xatolik yuz berdi",
-        status: data.code,
+        message: data.error || "Xatolik yuz berdi",
+        status: data.status,
       };
       return Promise.reject(error);
     }
