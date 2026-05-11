@@ -3,7 +3,7 @@ import { authStore } from "@/store/useAuthStore";
 import { ApiError, ApiResponse } from "@/types/api";
 import { RefreshResult } from "@/types/auth";
 
-const API_URL = import.meta.env.VITE_APP_API || "https://apiugt1.7z7.uz/";
+const API_URL = import.meta.env.VITE_APP_API || "https://api.abs-software.uz";
 
 let isRefreshing = false;
 
