@@ -1,37 +1,38 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Search, Edit2, Trash2, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/PageHeader";
-import { useOmborStore, deleteSupplier, getSupplierTotalKreditorlik } from "@/lib/omborStore";
 import { SupplierDialog } from "@/components/tamirotchilar/SupplierDialog";
-import { formatNumber, parseNumber } from "@/lib/utils";
+import { toast } from "sonner";
+import type { Supplier } from "@/services/suppliers.service";
+import { getSuppliers, deleteSupplier } from "@/services/suppliers.service";
 
 export function Tamirotchilar() {
   const navigate = useNavigate();
-  const suppliers = useOmborStore((s) => s.suppliers);
-  const history = useOmborStore((s) => s.history);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [search, setSearch] = useState("");
   const [showDialog, setShowDialog] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+
+  const load = async () => {
+    try {
+      const data = await getSuppliers();
+      setSuppliers(data);
+    } catch {
+      toast.error("Ta'minotchilarni yuklashda xatolik");
+    }
+  };
+
+  useEffect(() => { load(); }, []);
 
   const filteredSuppliers = suppliers.filter(
     (s) =>
-      s.nomi.toLowerCase().includes(search.toLowerCase()) ||
+      s.name.toLowerCase().includes(search.toLowerCase()) ||
       (s.inn && s.inn.includes(search)),
   );
-
-  const getLastImportDate = (supplierId: string): string | null => {
-    const records = history.filter((h) => h.tamirotchi_id === supplierId);
-    if (records.length === 0) return null;
-    return records[0].date;
-  };
-
-  const getImportCount = (supplierId: string): number => {
-    return history.filter((h) => h.tamirotchi_id === supplierId).length;
-  };
 
   return (
     <>
@@ -54,7 +55,7 @@ export function Tamirotchilar() {
           </div>
           <Button
             onClick={() => {
-              setEditingId(null);
+              setEditingSupplier(null);
               setShowDialog(true);
             }}
             className="gap-2"
@@ -78,59 +79,47 @@ export function Tamirotchilar() {
               </tr>
             </thead>
             <tbody>
-              {filteredSuppliers.map((supplier, idx) => {
-                const totalKredit = getSupplierTotalKreditorlik(supplier.id);
-                const lastDate = getLastImportDate(supplier.id);
-                const totalImports = getImportCount(supplier.id);
-
-                return (
-                  <tr key={supplier.id} className="border-b hover:bg-gray-50">
-                    <td className="px-4 py-3">{idx + 1}</td>
-                    <td className="px-4 py-3 font-medium">{supplier.nomi}</td>
-                    <td className="px-4 py-3 text-gray-600">{supplier.telefon}</td>
-                    <td className="px-4 py-3 text-gray-600">{supplier.inn || "—"}</td>
-                    <td className="px-4 py-3">
-                      {totalKredit > 0 ? (
-                        <span className="text-red-600 font-semibold">
-                          {formatNumber(totalKredit)} so'm
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{lastDate || "—"}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => navigate(`/tamirotchilar/${supplier.id}`)}
-                          className="gap-1 text-blue-600 hover:text-blue-700"
-                        >
-                          <Eye className="h-4 w-4" />
-                          Batafsil
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setEditingId(supplier.id)}
-                          className="text-blue-600 hover:text-blue-700"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setDeleteId(supplier.id)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+              {filteredSuppliers.map((supplier, idx) => (
+                <tr key={supplier.id} className="border-b hover:bg-gray-50">
+                  <td className="px-4 py-3">{idx + 1}</td>
+                  <td className="px-4 py-3 font-medium">{supplier.name}</td>
+                  <td className="px-4 py-3 text-gray-600">{supplier.phone}</td>
+                  <td className="px-4 py-3 text-gray-600">{supplier.inn || "—"}</td>
+                  <td className="px-4 py-3">
+                    <span className="text-gray-400">—</span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">—</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigate(`/tamirotchilar/${supplier.id}`)}
+                        className="gap-1 text-blue-600 hover:text-blue-700"
+                      >
+                        <Eye className="h-4 w-4" />
+                        Batafsil
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => { setEditingSupplier(supplier); setShowDialog(true); }}
+                        className="text-blue-600 hover:text-blue-700"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDeleteId(supplier.id)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -144,18 +133,19 @@ export function Tamirotchilar() {
 
       {/* Add/Edit Supplier Dialog */}
       <SupplierDialog
-        open={showDialog || !!editingId}
+        open={showDialog}
         onOpenChange={(open) => {
           if (!open) {
             setShowDialog(false);
-            setEditingId(null);
+            setEditingSupplier(null);
           }
         }}
-        supplierId={editingId || undefined}
+        supplier={editingSupplier}
+        onSuccess={load}
       />
 
       {/* Delete Confirmation Dialog */}
-      {deleteId && (
+      {deleteId !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="rounded-lg bg-white p-6 shadow-lg">
             <h2 className="mb-4 text-lg font-semibold">Ta'minotchini o'chirish</h2>
@@ -171,9 +161,15 @@ export function Tamirotchilar() {
               </Button>
               <Button
                 variant="destructive"
-                onClick={() => {
-                  deleteSupplier(deleteId);
-                  setDeleteId(null);
+                onClick={async () => {
+                  try {
+                    await deleteSupplier(deleteId);
+                    setDeleteId(null);
+                    await load();
+                    toast.success("Ta'minotchi o'chirildi");
+                  } catch {
+                    toast.error("O'chirishda xatolik yuz berdi");
+                  }
                 }}
               >
                 O'chirish

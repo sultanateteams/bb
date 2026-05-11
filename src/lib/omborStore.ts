@@ -540,7 +540,7 @@ export function createOrder(input: CreateOrderInput) {
     return it ? { ...p, stock: Math.max(0, p.stock - it.qty) } : p;
   });
   if (input.paid > 0) {
-    const payMethod = input.method === "Naqd" ? "cash" : (input.method === "Plastik" ? "card" : "transfer");
+    const payMethod = input.method === "Naqd" ? "cash" : (input.method === "Terminal" ? "card" : "transfer");
     addIncome('order_payment', input.paid, payMethod as 'cash' | 'card' | 'transfer', 'Admin', input.id, `${input.shop} chiqqasi`);
   }
   emit();
@@ -563,7 +563,7 @@ export function addOrderPayment(orderId: string, amount: number, method: string)
       ? { ...x, paid: newPaid, status: calcStatus(x.total, newPaid), payments: [...x.payments, pay] }
       : x,
   );
-  const payMethod = method === "Naqd" ? "cash" : (method === "Plastik" ? "card" : "transfer");
+  const payMethod = method === "Naqd" ? "cash" : (method === "Terminal" ? "card" : "transfer");
   addIncome('order_payment', amt, payMethod as 'cash' | 'card' | 'transfer', 'Admin', o.id, `${o.shop} to'lovi`);
   emit();
 }

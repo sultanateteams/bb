@@ -23,7 +23,8 @@ const rowTemplate = (materialId: string, materialName: string, unit: string): BO
 
 export function ProductBOMTab({ productType, bomData, rawMaterials, onChange, onSave }: Props) {
   const isTM = productType === "TM";
-  const rawOptions = rawMaterials.filter((item) => item.branch === productType.toLowerCase());
+  const branchOptions = rawMaterials.filter((item) => item.branch === productType.toLowerCase());
+  const rawOptions = branchOptions.length > 0 ? branchOptions : rawMaterials;
 
   const handleAddRow = () => {
     if (isTM) return;

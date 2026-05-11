@@ -1,23 +1,38 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Edit2, Mail, MapPin, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/PageHeader";
 import { useOmborStore, getSupplierTotalKreditorlik } from "@/lib/omborStore";
-import { formatNumber, parseNumber } from "@/lib/utils";
+import { formatNumber } from "@/lib/utils";
 import { SupplierDialog } from "@/components/tamirotchilar/SupplierDialog";
+import type { Supplier } from "@/services/suppliers.service";
+import { getSuppliers } from "@/services/suppliers.service";
 
 export default function TamirotchilarDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const suppliers = useOmborStore((s) => s.suppliers);
   const history = useOmborStore((s) => s.history);
+  const [supplier, setSupplier] = useState<Supplier | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<"import" | "payments">("import");
 
-  const supplier = id ? suppliers.find((s) => s.id === id) : null;
+  const loadSupplier = async () => {
+    if (!id) return;
+    try {
+      const list = await getSuppliers();
+      const found = list.find((s) => s.id === Number(id));
+      if (found) setSupplier(found);
+      else setNotFound(true);
+    } catch {
+      setNotFound(true);
+    }
+  };
 
-  if (!supplier) {
+  useEffect(() => { loadSupplier(); }, [id]);
+
+  if (notFound || (!supplier && id)) {
     return (
       <>
         <PageHeader title="Ta'minotchi topilmadi" />
@@ -35,8 +50,12 @@ export default function TamirotchilarDetail() {
     );
   }
 
-  const supplierImports = history.filter((h) => h.tamirotchi_id === id);
-  const totalCredit = getSupplierTotalKreditorlik(id);
+  if (!supplier) {
+    return <div className="py-8 text-center text-gray-400">Yuklanmoqda...</div>;
+  }
+
+  const supplierImports = history.filter((h) => h.tamirotchi_id === String(id));
+  const totalCredit = getSupplierTotalKreditorlik(String(id));
   const totalPurchase = supplierImports.reduce((sum, h) => sum + (h.jami_summa || 0), 0);
   const allPayments = supplierImports
     .flatMap((h) => (h.tolov_tarixi || []).map((p) => ({ ...p, importId: h.id })))
@@ -62,16 +81,16 @@ export default function TamirotchilarDetail() {
       <div className="mb-6 rounded-lg border bg-white p-6">
         <div className="flex items-start justify-between">
           <div className="space-y-4">
-            <h2 className="text-2xl font-bold">{supplier.nomi}</h2>
+            <h2 className="text-2xl font-bold">{supplier.name}</h2>
             <div className="space-y-2 text-gray-600">
               <div className="flex items-center gap-3">
                 <Phone className="h-4 w-4" />
-                <span>{supplier.telefon}</span>
+                <span>{supplier.phone}</span>
               </div>
-              {supplier.manzil && (
+              {supplier.address && (
                 <div className="flex items-center gap-3">
                   <MapPin className="h-4 w-4" />
-                  <span>{supplier.manzil}</span>
+                  <span>{supplier.address}</span>
                 </div>
               )}
               {supplier.inn && (
@@ -80,8 +99,8 @@ export default function TamirotchilarDetail() {
                   <span>INN: {supplier.inn}</span>
                 </div>
               )}
-              {supplier.izoh && (
-                <div className="text-sm italic text-gray-500">{supplier.izoh}</div>
+              {supplier.note && (
+                <div className="text-sm italic text-gray-500">{supplier.note}</div>
               )}
             </div>
           </div>
@@ -266,7 +285,8 @@ export default function TamirotchilarDetail() {
       <SupplierDialog
         open={showEditDialog}
         onOpenChange={setShowEditDialog}
-        supplierId={supplier.id}
+        supplier={supplier}
+        onSuccess={loadSupplier}
       />
     </>
   );

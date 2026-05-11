@@ -1,16 +1,17 @@
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { products as allProducts } from "@/lib/mockData";
-import { addTmStockWithPayment, useOmborStore } from "@/lib/omborStore";
+import { getProductTypes } from "@/services/product-types.service";
 import { formatNumber } from "@/lib/utils";
 import { SupplierSelect } from "@/components/shared/SupplierSelect";
 import { PaymentSection } from "@/components/shared/PaymentSection";
+import { useCreateTmPurchaseMutation } from "@/hooks/api/tm-purchases.hooks";
 
 interface Row {
   key: string;
@@ -29,15 +30,21 @@ const newRow = (): Row => ({
 });
 
 export function TmAddDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
-  const suppliers = useOmborStore((s) => s.suppliers);
   const [rows, setRows] = useState<Row[]>([newRow()]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [supplierId, setSupplierId] = useState<string | null>(null);
-  const [tolanganSumma, setTolanganSumma] = useState(0);
-  const [tolovUsuli, setTolovUsuli] = useState("naqt");
-  const [tolovMuddati, setTolovMuddati] = useState("");
+  const [paidAmount, setPaidAmount] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [paymentDueDate, setPaymentDueDate] = useState("");
 
-  const tmProducts = useMemo(() => allProducts.filter((p) => p.branch === "tm"), []);
+  const { data: allProducts = [] } = useQuery({
+    queryKey: ["product-types"],
+    queryFn: getProductTypes,
+  });
+
+  const tmProducts = useMemo(() => allProducts.filter((p) => p.type === "TM" && p.isActive), [allProducts]);
+
+  const createMutation = useCreateTmPurchaseMutation();
 
   const update = (key: string, patch: Partial<Row>) =>
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
@@ -45,12 +52,15 @@ export function TmAddDialog({ open, onOpenChange }: { open: boolean; onOpenChang
     setRows((rs) => (rs.length > 1 ? rs.filter((r) => r.key !== key) : rs));
 
   const totalSum = rows.reduce((s, r) => s + (Number(r.qty) || 0) * (Number(r.price) || 0), 0);
-  const qoldiq = Math.max(0, totalSum - tolanganSumma);
-  const supplierName = supplierId ? suppliers.find((s) => s.id === supplierId)?.nomi : null;
+  const qoldiq = Math.max(0, totalSum - paidAmount);
 
   const reset = () => {
-    setRows([newRow()]); setErrors({});
-    setSupplierId(null); setTolanganSumma(0); setTolovUsuli("naqt"); setTolovMuddati("");
+    setRows([newRow()]);
+    setErrors({});
+    setSupplierId(null);
+    setPaidAmount(0);
+    setPaymentMethod("cash");
+    setPaymentDueDate("");
   };
 
   const handleSave = () => {
@@ -60,29 +70,38 @@ export function TmAddDialog({ open, onOpenChange }: { open: boolean; onOpenChang
       if (!r.qty || Number(r.qty) <= 0) errs[`q-${r.key}`] = "Miqdor > 0";
       if (!r.price || Number(r.price) <= 0) errs[`pr-${r.key}`] = "Narx > 0";
     });
-    if (tolanganSumma > totalSum) errs.t = "To'langan summa jami summadan oshib ketdi";
+    if (!supplierId) errs.supplier = "Ta'minotchi tanlang";
+    if (paidAmount > totalSum) errs.t = "To'langan summa jami summadan oshib ketdi";
     if (Object.keys(errs).length) { setErrors(errs); return; }
 
-    addTmStockWithPayment({
-      items: rows.map((r) => ({
-        productId: Number(r.productId),
-        qty: Number(r.qty),
-        price: Number(r.price),
-        note: r.note,
-      })),
-      supplierId: supplierId || undefined,
-      tolanganSumma,
-      tolovUsuli,
-      tolovMuddati: tolovMuddati || undefined,
-    });
-
-    if (qoldiq > 0) {
-      toast.success(`✅ TM mahsulot qo'shildi. Kreditorlik: ${formatNumber(qoldiq)} so'm`);
-    } else {
-      toast.success("✅ TM mahsulot omborga qo'shildi");
-    }
-    reset();
-    onOpenChange(false);
+    createMutation.mutate(
+      {
+        supplier_id: Number(supplierId),
+        items: rows.map((r) => ({
+          product_type_id: Number(r.productId),
+          quantity: Number(r.qty),
+          unit_price: Number(r.price),
+          notes: r.note || undefined,
+        })),
+        paid_amount: paidAmount,
+        payment_method: paymentMethod,
+        payment_due_date: paymentDueDate || undefined,
+      },
+      {
+        onSuccess: () => {
+          if (qoldiq > 0) {
+            toast.success(`✅ TM mahsulot qo'shildi. Kreditorlik: ${formatNumber(qoldiq)} so'm`);
+          } else {
+            toast.success("✅ TM mahsulot omborga qo'shildi");
+          }
+          reset();
+          onOpenChange(false);
+        },
+        onError: (err: any) => {
+          toast.error(err?.message || "Xatolik yuz berdi");
+        },
+      },
+    );
   };
 
   return (
@@ -112,7 +131,7 @@ export function TmAddDialog({ open, onOpenChange }: { open: boolean; onOpenChang
                       <SelectTrigger><SelectValue placeholder="TM mahsulot tanlang" /></SelectTrigger>
                       <SelectContent>
                         {tmProducts.map((p) => (
-                          <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -150,34 +169,46 @@ export function TmAddDialog({ open, onOpenChange }: { open: boolean; onOpenChang
             <span className="font-semibold tabular-nums">{formatNumber(totalSum)} so'm</span>
           </div>
 
-          <SupplierSelect value={supplierId} onChange={setSupplierId} />
+          <SupplierSelect
+            value={supplierId}
+            onChange={setSupplierId}
+            required
+            error={errors.supplier}
+          />
 
           {totalSum > 0 && (
             <PaymentSection
               jamiSumma={totalSum}
-              tolanganSumma={tolanganSumma}
-              onTolanganChange={setTolanganSumma}
-              tolovUsuli={tolovUsuli}
-              onTolovUsuliChange={setTolovUsuli}
-              tolovMuddati={tolovMuddati}
-              onTolovMuddatiChange={setTolovMuddati}
+              tolanganSumma={paidAmount}
+              onTolanganChange={setPaidAmount}
+              tolovUsuli={paymentMethod}
+              onTolovUsuliChange={setPaymentMethod}
+              tolovMuddati={paymentDueDate}
+              onTolovMuddatiChange={setPaymentDueDate}
             />
           )}
 
-          {totalSum > 0 && (
+          {errors.t && <p className="text-xs text-destructive">{errors.t}</p>}
+
+          {totalSum > 0 && supplierId && (
             <div className="rounded-lg border bg-muted/30 p-3 text-sm space-y-1">
-              <div>📦 Mahsulot: {rows.map((r) => tmProducts.find((p) => String(p.id) === r.productId)?.name || "—").join(", ")}</div>
+              <div>📦 Mahsulotlar: {rows.filter((r) => r.productId).map((r) => tmProducts.find((p) => p.id === r.productId)?.name || "—").join(", ")}</div>
               <div>💰 Jami summa: {formatNumber(totalSum)} so'm</div>
-              {tolanganSumma > 0 && <div>✅ To'lanadi: {formatNumber(tolanganSumma)} so'm</div>}
+              {paidAmount > 0 && <div>✅ To'lanadi: {formatNumber(paidAmount)} so'm</div>}
               {qoldiq > 0 && <div className="text-red-600">🔴 Kreditga: {formatNumber(qoldiq)} so'm</div>}
-              <div>🏢 Ta'minotchi: {supplierName || "—"}</div>
             </div>
           )}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Bekor qilish</Button>
-          <Button onClick={handleSave} className="bg-gradient-brand">Saqlash</Button>
+          <Button
+            onClick={handleSave}
+            className="bg-gradient-brand"
+            disabled={createMutation.isPending}
+          >
+            {createMutation.isPending ? "Saqlanmoqda..." : "Saqlash"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

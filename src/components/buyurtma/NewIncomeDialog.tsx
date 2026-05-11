@@ -34,7 +34,7 @@ export function NewIncomeDialog({ open, onOpenChange }: NewIncomeDialogProps) {
       const input: AddIncomeInput = {
         type: type as "order_payment" | "scrap" | "other",
         amount: parseFloat(amount.replace(/\s/g, "")),
-        paymentMethod: method as "cash" | "card" | "transfer",
+        paymentMethod: method as "cash" | "terminal" | "transfer",
         receivedBy,
         orderId: type === "order_payment" ? orderId : undefined,
         note: note || undefined,
@@ -137,7 +137,7 @@ export function NewIncomeDialog({ open, onOpenChange }: NewIncomeDialogProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="cash">Naqd</SelectItem>
-                <SelectItem value="card">Plastik</SelectItem>
+                <SelectItem value="terminal">Terminal</SelectItem>
                 <SelectItem value="transfer">O'tkazma</SelectItem>
               </SelectContent>
             </Select>

@@ -57,9 +57,9 @@ export function PaymentSection({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="naqt">Naqd</SelectItem>
-              <SelectItem value="plastik">Plastik</SelectItem>
-              <SelectItem value="otkazma">O'tkazma</SelectItem>
+              <SelectItem value="cash">Naqd</SelectItem>
+              <SelectItem value="terminal">Terminal</SelectItem>
+              <SelectItem value="transfer">O'tkazma</SelectItem>
             </SelectContent>
           </Select>
         </div>

@@ -5,13 +5,22 @@ import { ProductFilters } from "./components/ProductFilters";
 import { AddProductModal } from "./components/AddProductModal";
 import { ProductDetailModal } from "./components/ProductDetailModal";
 import { useToast } from "@/hooks/use-toast";
-import { rawMaterials } from "@/lib/mockData";
+import type { RawMaterial } from "@/lib/mockData";
+import { getRawMaterialTypes } from "@/services/raw-material-types.service";
 import {
   getProductTypes,
   createProductType,
   updateProductType,
   deleteProductType,
 } from "@/services/product-types.service";
+import {
+  getProductBOM,
+  syncProductBOM,
+  getWLServiceFee,
+  upsertWLServiceFee,
+  getPriceTiers,
+  syncPriceTiers,
+} from "@/services/product-bom.service";
 import type {
   Product,
   ProductFilter,
@@ -34,6 +43,7 @@ const defaultBOM = (): WLProductBOM => ({ items: [], serviceChargePerUnit: 0 });
 export function MahsulotTurlari() {
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
+  const [rawMaterials, setRawMaterials] = useState<RawMaterial[]>([]);
   const [filter, setFilter] = useState<ProductFilter>({ search: "", type: "ALL" });
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -44,8 +54,20 @@ export function MahsulotTurlari() {
   const load = async () => {
     setIsLoading(true);
     try {
-      const list = await getProductTypes();
+      const [list, rawList] = await Promise.all([getProductTypes(), getRawMaterialTypes()]);
       setProducts(list);
+      // API RawMaterial (type: "ICH"/"WL") → mockData shape (branch: "ich"/"wl", id: number)
+      setRawMaterials(
+        rawList.map((r) => ({
+          id: Number(r.id),
+          name: r.name,
+          branch: r.type.toLowerCase() as "ich" | "wl",
+          unit: r.unit,
+          stock: 0,
+          min: r.minStock,
+          price: String(r.defaultPrice),
+        })),
+      );
       setProductPricings(
         list.reduce(
           (acc, p) => ({ ...acc, [p.id]: defaultPricing(p.id) }),
@@ -118,14 +140,80 @@ export function MahsulotTurlari() {
     }
   };
 
+  const loadBOM = async (product: Product) => {
+    try {
+      const productTypeId = Number(product.id);
+      const [bomItems, feeData, tierItems] = await Promise.all([
+        getProductBOM(productTypeId),
+        product.type === "WL" ? getWLServiceFee(productTypeId) : Promise.resolve(null),
+        getPriceTiers(productTypeId),
+      ]);
+
+      const items = bomItems.map((b) => ({
+        id: String(b.id),
+        rawMaterialId: String(b.raw_material_type_id),
+        rawMaterialName:
+          rawMaterials.find((r) => r.id === b.raw_material_type_id)?.name ?? String(b.raw_material_type_id),
+        unit: rawMaterials.find((r) => r.id === b.raw_material_type_id)?.unit ?? "",
+        quantityPer1Unit: b.qty_per_unit,
+      }));
+      const bom: WLProductBOM = { items, serviceChargePerUnit: feeData?.fee_per_unit ?? 0 };
+      setProductBOMs((prev) => ({ ...prev, [product.id]: bom }));
+
+      if (tierItems.length > 0) {
+        const categories: { category: "retail" | "dealer" | "vip"; tiers: { id?: string; fromQty: number; toQty: number | null; price: number }[] }[] = [
+          { category: "retail", tiers: [] },
+          { category: "dealer", tiers: [] },
+          { category: "vip", tiers: [] },
+        ];
+        for (const t of tierItems) {
+          const cat = categories.find((c) => c.category === t.shop_category);
+          if (cat) cat.tiers.push({ id: String(t.id), fromQty: t.qty_from, toQty: t.qty_to ?? null, price: t.unit_price });
+        }
+        setProductPricings((prev) => ({ ...prev, [product.id]: { productId: product.id, categories } }));
+      }
+    } catch {
+      // silently keep defaults
+    }
+  };
+
   const handleSaveBOM = async (productId: string, bomData: WLProductBOM | TMProductInfo) => {
-    setProductBOMs((prev) => ({ ...prev, [productId]: bomData }));
-    toast({ title: "BOM saqlandi", description: "Mahsulot uchun BOM yangilandi." });
+    try {
+      const productTypeId = Number(productId);
+      const bom = bomData as WLProductBOM;
+      await syncProductBOM({
+        product_type_id: productTypeId,
+        items: bom.items.map((item) => ({
+          raw_material_type_id: Number(item.rawMaterialId),
+          qty_per_unit: item.quantityPer1Unit,
+        })),
+      });
+      if (selectedProduct?.type === "WL") {
+        await upsertWLServiceFee(productTypeId, bom.serviceChargePerUnit ?? 0);
+      }
+      setProductBOMs((prev) => ({ ...prev, [productId]: bomData }));
+      toast({ title: "BOM saqlandi", description: "Mahsulot uchun BOM yangilandi." });
+    } catch {
+      toast({ title: "Xatolik", description: "BOM saqlanmadi", variant: "destructive" });
+    }
   };
 
   const handleSavePricing = async (productId: string, pricing: ProductPricing) => {
-    setProductPricings((prev) => ({ ...prev, [productId]: pricing }));
-    toast({ title: "Narxlar saqlandi", description: "Tiered pricing yangilandi." });
+    try {
+      const tiers = pricing.categories.flatMap((cat) =>
+        cat.tiers.map((tier) => ({
+          shop_category: cat.category,
+          qty_from: tier.fromQty,
+          qty_to: tier.toQty ?? null,
+          unit_price: tier.price,
+        })),
+      );
+      await syncPriceTiers({ product_type_id: Number(productId), tiers });
+      setProductPricings((prev) => ({ ...prev, [productId]: pricing }));
+      toast({ title: "Narxlar saqlandi", description: "Tiered pricing yangilandi." });
+    } catch {
+      toast({ title: "Xatolik", description: "Narxlar saqlanmadi", variant: "destructive" });
+    }
   };
 
   return (
@@ -143,7 +231,7 @@ export function MahsulotTurlari() {
       <ProductTable
         products={filteredProducts}
         isLoading={isLoading}
-        onOpenDetail={(product) => setSelectedProduct(product)}
+        onOpenDetail={(product) => { setSelectedProduct(product); loadBOM(product); }}
       />
 
       <AddProductModal open={isAddOpen} onOpenChange={setIsAddOpen} onCreate={handleCreateProduct} />

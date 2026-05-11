@@ -10,79 +10,78 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useOmborStore, addSupplier, updateSupplier } from "@/lib/omborStore";
 import { toast } from "sonner";
+import type { Supplier } from "@/services/suppliers.service";
+import { createSupplier, updateSupplier } from "@/services/suppliers.service";
 
 interface SupplierDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  supplierId?: string;
+  supplier?: Supplier | null;
+  onSuccess: () => void;
 }
 
-export function SupplierDialog({ open, onOpenChange, supplierId }: SupplierDialogProps) {
-  const suppliers = useOmborStore((s) => s.suppliers);
-  const [nomi, setNomi] = useState("");
-  const [telefon, setTelefon] = useState("");
-  const [manzil, setManzil] = useState("");
+export function SupplierDialog({ open, onOpenChange, supplier, onSuccess }: SupplierDialogProps) {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
   const [inn, setInn] = useState("");
-  const [izoh, setIzoh] = useState("");
+  const [note, setNote] = useState("");
+  const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-  const supplier = supplierId ? suppliers.find((s) => s.id === supplierId) : null;
 
   useEffect(() => {
     if (supplier) {
-      setNomi(supplier.nomi);
-      setTelefon(supplier.telefon);
-      setManzil(supplier.manzil || "");
+      setName(supplier.name);
+      setPhone(supplier.phone);
+      setAddress(supplier.address || "");
       setInn(supplier.inn || "");
-      setIzoh(supplier.izoh || "");
-      setErrors({});
+      setNote(supplier.note || "");
     } else {
-      setNomi("");
-      setTelefon("");
-      setManzil("");
+      setName("");
+      setPhone("");
+      setAddress("");
       setInn("");
-      setIzoh("");
-      setErrors({});
+      setNote("");
     }
+    setErrors({});
   }, [supplier, open]);
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
-    if (!nomi.trim()) newErrors.nomi = "Nomi majburiy";
-    if (!telefon.trim()) newErrors.telefon = "Telefon majburiy";
-    if (inn && inn.length > 9) newErrors.inn = "INN 9 ta raqamdan ko'p bo'lishi mumkin emas";
+    if (!name.trim()) newErrors.name = "Nomi majburiy";
+    if (!phone.trim()) newErrors.phone = "Telefon majburiy";
+    else if (phone.trim().length < 7) newErrors.phone = "Telefon kamida 7 ta belgi bo'lishi kerak";
+    if (inn && inn.length > 12) newErrors.inn = "INN 12 ta belgidan ko'p bo'lmasligi kerak";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validate()) return;
-
+    setLoading(true);
     try {
+      const payload = {
+        name: name.trim(),
+        phone: phone.trim(),
+        address: address.trim() || undefined,
+        inn: inn.trim() || undefined,
+        note: note.trim() || undefined,
+      };
+
       if (supplier) {
-        updateSupplier(supplier.id, {
-          nomi,
-          telefon,
-          manzil: manzil || undefined,
-          inn: inn || undefined,
-          izoh: izoh || undefined,
-        });
+        await updateSupplier(supplier.id, payload);
         toast.success("Ta'minotchi tahrirlandi");
       } else {
-        addSupplier({
-          nomi,
-          telefon,
-          manzil: manzil || undefined,
-          inn: inn || undefined,
-          izoh: izoh || undefined,
-        });
+        await createSupplier(payload);
         toast.success("Ta'minotchi qo'shildi");
       }
+      onSuccess();
       onOpenChange(false);
-    } catch (error) {
-      toast.error("Xatolik yuz berdi");
+    } catch {
+      toast.error("Saqlashda xatolik yuz berdi");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -107,11 +106,11 @@ export function SupplierDialog({ open, onOpenChange, supplierId }: SupplierDialo
             </label>
             <Input
               placeholder="Ta'minotchi nomi"
-              value={nomi}
-              onChange={(e) => setNomi(e.target.value)}
-              className={errors.nomi ? "border-red-500" : ""}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className={errors.name ? "border-red-500" : ""}
             />
-            {errors.nomi && <p className="text-red-500 text-xs mt-1">{errors.nomi}</p>}
+            {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
           </div>
 
           <div>
@@ -120,19 +119,19 @@ export function SupplierDialog({ open, onOpenChange, supplierId }: SupplierDialo
             </label>
             <Input
               placeholder="+998 90 123 45 67"
-              value={telefon}
-              onChange={(e) => setTelefon(e.target.value)}
-              className={errors.telefon ? "border-red-500" : ""}
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className={errors.phone ? "border-red-500" : ""}
             />
-            {errors.telefon && <p className="text-red-500 text-xs mt-1">{errors.telefon}</p>}
+            {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1">Manzil</label>
             <Input
               placeholder="Shahar, ko'cha, uy raqami"
-              value={manzil}
-              onChange={(e) => setManzil(e.target.value)}
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
             />
           </div>
 
@@ -142,7 +141,7 @@ export function SupplierDialog({ open, onOpenChange, supplierId }: SupplierDialo
               placeholder="Soliq ID raqami"
               value={inn}
               onChange={(e) => setInn(e.target.value)}
-              maxLength={9}
+              maxLength={12}
               className={errors.inn ? "border-red-500" : ""}
             />
             {errors.inn && <p className="text-red-500 text-xs mt-1">{errors.inn}</p>}
@@ -152,19 +151,19 @@ export function SupplierDialog({ open, onOpenChange, supplierId }: SupplierDialo
             <label className="block text-sm font-medium mb-1">Izoh</label>
             <Textarea
               placeholder="Qo'shimcha ma'lumot..."
-              value={izoh}
-              onChange={(e) => setIzoh(e.target.value)}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
               rows={3}
             />
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
             Bekor qilish
           </Button>
-          <Button onClick={handleSubmit}>
-            {supplier ? "Saqlash" : "Qo'shish"}
+          <Button onClick={handleSubmit} disabled={loading}>
+            {loading ? "Saqlanmoqda..." : supplier ? "Saqlash" : "Qo'shish"}
           </Button>
         </DialogFooter>
       </DialogContent>
