@@ -6,21 +6,16 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatusBadge } from "@/components/Badges";
-import { agents, shops, regions } from "@/lib/mockData";
-import { useOmborStore } from "@/lib/omborStore";
 import { formatNumber } from "@/lib/utils";
 import { NewOrderDialog } from "@/components/buyurtma/NewOrderDialog";
 import { Plus, RotateCcw, Download } from "lucide-react";
+import { useOrdersQuery } from "@/hooks/api/orders.hooks";
+import { useQuery } from "@tanstack/react-query";
+import { getAgents, getShops } from "@/services/partners.service";
 
 const ALL = "__all__";
 
-function toDate(s: string) {
-  const [d, m, y] = s.split(".").map(Number);
-  return new Date(y, m - 1, d);
-}
-
 export default function Buyurtma() {
-  const orders = useOmborStore((s) => s.orders);
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState(ALL);
@@ -30,25 +25,31 @@ export default function Buyurtma() {
   const [shop, setShop] = useState(ALL);
   const [region, setRegion] = useState(ALL);
 
+  const { data: agents = [] } = useQuery({ queryKey: ["agents"], queryFn: getAgents });
+  const { data: shops = [] } = useQuery({ queryKey: ["shops"], queryFn: getShops });
+  const { data: ordersResp } = useOrdersQuery({
+    page: 1,
+    limit: 300,
+    search: q || undefined,
+    agent_id: agent !== ALL ? Number(agent) : undefined,
+    shop_id: shop !== ALL ? Number(shop) : undefined,
+    status: status !== ALL ? status : undefined,
+    date_from: from || undefined,
+    date_to: to || undefined,
+  });
+  const orders = ordersResp?.orders ?? [];
+  const regions = useMemo(() => Array.from(new Set(orders.map((o) => o.region).filter(Boolean))), [orders]);
+
   const filtered = useMemo(() => {
     return orders.filter((o) => {
-      if (q) {
-        const s = q.toLowerCase();
-        if (!o.id.toLowerCase().includes(s) && !o.shop.toLowerCase().includes(s)) return false;
-      }
-      if (status !== ALL && o.status !== status) return false;
-      if (agent !== ALL && String(o.agentId) !== agent) return false;
-      if (shop !== ALL && String(o.shopId) !== shop) return false;
       if (region !== ALL && o.region !== region) return false;
-      if (from) { if (toDate(o.date) < new Date(from)) return false; }
-      if (to) { if (toDate(o.date) > new Date(to)) return false; }
       return true;
     });
-  }, [orders, q, status, from, to, agent, shop, region]);
+  }, [orders, region]);
 
   const totals = useMemo(() => {
     return filtered.reduce(
-      (s, o) => ({ total: s.total + o.total, paid: s.paid + o.paid, remain: s.remain + (o.total - o.paid) }),
+      (s, o) => ({ total: s.total + o.total_amount, paid: s.paid + o.paid_amount, remain: s.remain + o.debt_amount }),
       { total: 0, paid: 0, remain: 0 },
     );
   }, [filtered]);
@@ -103,7 +104,7 @@ export default function Buyurtma() {
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL}>Hammasi</SelectItem>
-                {shops.map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}
+                {shops.map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.storeName}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -137,16 +138,16 @@ export default function Buyurtma() {
           <tbody>
             {filtered.length === 0 && <tr><td colSpan={10} className="text-center text-muted-foreground py-8">Buyurtma topilmadi</td></tr>}
             {filtered.map((o) => {
-              const remain = o.total - o.paid;
+              const remain = o.debt_amount;
               const tone = o.status === "To'langan" ? "success" : o.status === "Qisman to'langan" ? "warning" : "danger";
               return (
                 <tr key={o.id}>
-                  <td className="font-mono text-xs font-semibold">{o.id}</td>
-                  <td className="text-muted-foreground">{o.date}</td>
-                  <td className="font-medium">{o.shop}</td>
-                  <td>{o.agent}</td>
-                  <td className="text-right tabular-nums font-semibold">{formatNumber(o.total)}</td>
-                  <td className="text-right tabular-nums">{formatNumber(o.paid)}</td>
+                  <td className="font-mono text-xs font-semibold">{o.order_number}</td>
+                  <td className="text-muted-foreground">{o.order_date}</td>
+                  <td className="font-medium">{o.shop_name}</td>
+                  <td>{o.agent_name}</td>
+                  <td className="text-right tabular-nums font-semibold">{formatNumber(o.total_amount)}</td>
+                  <td className="text-right tabular-nums">{formatNumber(o.paid_amount)}</td>
                   <td className={`text-right tabular-nums ${remain > 0 ? "text-destructive font-bold" : ""}`}>{remain > 0 ? formatNumber(remain) : "—"}</td>
                   <td><StatusBadge status={o.status} tone={tone} /></td>
                   <td>{o.region}</td>

@@ -76,6 +76,7 @@ export function TmAddDialog({ open, onOpenChange }: { open: boolean; onOpenChang
 
     createMutation.mutate(
       {
+        purchase_type: "tm",
         supplier_id: Number(supplierId),
         items: rows.map((r) => ({
           product_type_id: Number(r.productId),

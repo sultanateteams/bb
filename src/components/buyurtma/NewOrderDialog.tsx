@@ -4,27 +4,26 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { agents, shops, type ShopCategory } from "@/lib/mockData";
-import { useOmborStore, createOrder, nextOrderId, type CreateOrderInput } from "@/lib/omborStore";
+import { useOmborStore, nextOrderId } from "@/lib/omborStore";
 import { formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
 import { Trash2, Plus } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { getAgents, getShops } from "@/services/partners.service";
+import { getProductTypes } from "@/services/product-types.service";
+import { getPriceTiers } from "@/services/product-bom.service";
+import { useCreateOrderMutation } from "@/hooks/api/orders.hooks";
 
+type ShopCategory = "retail" | "dealer" | "vip";
 const catLabel: Record<ShopCategory, string> = { retail: "Retail", dealer: "Diler", vip: "VIP" };
-
-function tierPrice(base: number, cat: ShopCategory, qty: number): number {
-  if (cat === "vip") return Math.round(base * 0.85);
-  if (cat === "dealer") return qty >= 101 ? Math.round(base * 0.88) : Math.round(base * 0.94);
-  // retail
-  if (qty >= 201) return Math.round(base * 0.9);
-  if (qty >= 51) return Math.round(base * 0.95);
-  return base;
-}
 
 interface Row { productId: number; name: string; unit: string; qty: number; price: number; }
 
 export function NewOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
-  const products = useOmborStore((s) => s.products);
+  const productsStock = useOmborStore((s) => s.products);
+  const { data: agents = [] } = useQuery({ queryKey: ["agents"], queryFn: getAgents });
+  const { data: shops = [] } = useQuery({ queryKey: ["shops"], queryFn: getShops });
+  const { data: productTypes = [] } = useQuery({ queryKey: ["product-types"], queryFn: getProductTypes });
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [orderId, setOrderId] = useState(() => nextOrderId());
   const [agentId, setAgentId] = useState<string>("");
@@ -36,6 +35,7 @@ export function NewOrderDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   const [pickProduct, setPickProduct] = useState<string>("");
   const [pickQty, setPickQty] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const createOrderMutation = useCreateOrderMutation();
 
   const shop = shops.find((s) => s.id === Number(shopId));
   const agent = agents.find((a) => a.id === Number(agentId));
@@ -43,12 +43,23 @@ export function NewOrderDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   const remain = Math.max(0, total - paid);
   const status = paid <= 0 ? "To'lanmagan" : paid >= total ? "To'langan" : "Qisman to'langan";
 
-  const pickedProduct = products.find((p) => p.id === Number(pickProduct));
+  const pickedProduct = productTypes.find((p) => p.id === pickProduct);
+  const pickedStock = productsStock.find((p) => String(p.id) === pickProduct)?.stock ?? 0;
+  const { data: pickedPriceTiers = [] } = useQuery({
+    queryKey: ["price-tiers", pickProduct],
+    queryFn: () => getPriceTiers(Number(pickProduct)),
+    enabled: !!pickProduct,
+  });
   const previewPrice = useMemo(() => {
     if (!pickedProduct || !shop || !pickQty) return 0;
-    const base = Number(pickedProduct.price.replace(/\s/g, ""));
-    return tierPrice(base, shop.category, pickQty);
-  }, [pickedProduct, shop, pickQty]);
+    const cat: ShopCategory = shop.category === "Retail" ? "retail" : shop.category === "VIP" ? "vip" : "dealer";
+    const tier = pickedPriceTiers.find((t) =>
+      t.shop_category === cat &&
+      pickQty >= t.qty_from &&
+      (t.qty_to == null || pickQty <= t.qty_to),
+    );
+    return tier ? Number(tier.unit_price) : 0;
+  }, [pickedProduct, shop, pickQty, pickedPriceTiers]);
 
   function reset() {
     setDate(new Date().toISOString().slice(0, 10));
@@ -62,13 +73,13 @@ export function NewOrderDialog({ open, onOpenChange }: { open: boolean; onOpenCh
       toast.error("Mahsulot va miqdorni tanlang");
       return;
     }
-    if (pickQty > pickedProduct.stock) {
-      toast.error(`Omborda yetarli emas (mavjud: ${pickedProduct.stock})`);
+    if (pickQty > pickedStock) {
+      toast.error(`Omborda yetarli emas (mavjud: ${pickedStock})`);
       return;
     }
     setRows((r) => [
       ...r,
-      { productId: pickedProduct.id, name: pickedProduct.name, unit: pickedProduct.unit, qty: pickQty, price: previewPrice },
+      { productId: Number(pickedProduct.id), name: pickedProduct.name, unit: pickedProduct.unit, qty: pickQty, price: previewPrice },
     ]);
     setPickProduct(""); setPickQty(0);
   }
@@ -80,17 +91,32 @@ export function NewOrderDialog({ open, onOpenChange }: { open: boolean; onOpenCh
     if (rows.length === 0) e.rows = "Kamida bitta mahsulot qo'shing";
     setErrors(e);
     if (Object.keys(e).length) return;
-    const input: CreateOrderInput = {
-      id: orderId,
-      date: new Date(date).toLocaleDateString("ru-RU").split("/").join("."),
-      shopId: shop!.id, shop: shop!.name, region: shop!.region,
-      agentId: agent!.id, agent: agent!.name,
-      items: rows, paid, method,
-    };
-    createOrder(input);
-    toast.success("Buyurtma muvaffaqiyatli yaratildi");
-    onOpenChange(false);
-    reset();
+    const paymentMethod = method === "Naqt" ? "cash" : method === "Plastik" ? "terminal" : "transfer";
+    createOrderMutation.mutate(
+      {
+        order_date: date,
+        order_number: orderId,
+        agent_id: agent!.id,
+        shop_id: shop!.id,
+        items: rows.map((r) => ({
+          product_type_id: r.productId,
+          quantity: r.qty,
+          unit_price: r.price,
+        })),
+        paid_amount: paid,
+        payment_method: paymentMethod,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Buyurtma muvaffaqiyatli yaratildi");
+          onOpenChange(false);
+          reset();
+        },
+        onError: (err: any) => {
+          toast.error(err?.message || "Buyurtma yaratishda xatolik");
+        },
+      },
+    );
   }
 
   return (
@@ -107,7 +133,7 @@ export function NewOrderDialog({ open, onOpenChange }: { open: boolean; onOpenCh
               <Label>Savdo vakili</Label>
               <Select value={agentId} onValueChange={setAgentId}>
                 <SelectTrigger><SelectValue placeholder="Tanlang" /></SelectTrigger>
-                <SelectContent>{agents.map((a) => <SelectItem key={a.id} value={String(a.id)}>{a.name}</SelectItem>)}</SelectContent>
+                  <SelectContent>{agents.map((a) => <SelectItem key={a.id} value={String(a.id)}>{`${a.firstName} ${a.lastName}`.trim()}</SelectItem>)}</SelectContent>
               </Select>
               {errors.agent && <p className="text-xs text-destructive mt-1">{errors.agent}</p>}
             </div>
@@ -116,9 +142,9 @@ export function NewOrderDialog({ open, onOpenChange }: { open: boolean; onOpenCh
               <div className="flex gap-2 items-center">
                 <Select value={shopId} onValueChange={setShopId}>
                   <SelectTrigger><SelectValue placeholder="Tanlang" /></SelectTrigger>
-                  <SelectContent>{shops.map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}</SelectContent>
+                  <SelectContent>{shops.map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.storeName}</SelectItem>)}</SelectContent>
                 </Select>
-                {shop && <span className="text-xs px-2 py-1 rounded-md bg-accent text-accent-foreground whitespace-nowrap">{catLabel[shop.category]}</span>}
+                {shop && <span className="text-xs px-2 py-1 rounded-md bg-accent text-accent-foreground whitespace-nowrap">{catLabel[(shop.category === "Retail" ? "retail" : shop.category === "VIP" ? "vip" : "dealer")]}</span>}
               </div>
               {errors.shop && <p className="text-xs text-destructive mt-1">{errors.shop}</p>}
             </div>
@@ -133,8 +159,8 @@ export function NewOrderDialog({ open, onOpenChange }: { open: boolean; onOpenCh
               <Select value={pickProduct} onValueChange={setPickProduct}>
                 <SelectTrigger><SelectValue placeholder="Tanlang" /></SelectTrigger>
                 <SelectContent>
-                  {products.map((p) => (
-                    <SelectItem key={p.id} value={String(p.id)}>{p.name} — {p.stock} {p.unit}</SelectItem>
+                  {productTypes.filter((p) => p.type === "TM").map((p) => (
+                    <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -197,7 +223,9 @@ export function NewOrderDialog({ open, onOpenChange }: { open: boolean; onOpenCh
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Bekor qilish</Button>
-          <Button onClick={save}>Saqlash</Button>
+          <Button onClick={save} disabled={createOrderMutation.isPending}>
+            {createOrderMutation.isPending ? "Saqlanmoqda..." : "Saqlash"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -3,13 +3,15 @@ import { httpClient } from "@/services/httpClient";
 type BackendResp<T> = { data: T; status: number; message?: string; error?: string };
 
 export interface TmPurchaseItemReq {
-  product_type_id: number;
+  product_type_id?: number;
+  raw_material_type_id?: number;
   quantity: number;
   unit_price: number;
   notes?: string;
 }
 
 export interface CreateTmPurchasePayload {
+  purchase_type?: "tm" | "raw_material";
   supplier_id: number;
   items: TmPurchaseItemReq[];
   paid_amount: number;
@@ -27,8 +29,10 @@ export interface AddTmTransactionPayload {
 
 export interface TmPurchaseItemResp {
   id: number;
-  product_type_id: number;
-  product_type_name: string;
+  product_type_id?: number;
+  product_type_name?: string;
+  raw_material_type_id?: number;
+  raw_material_type_name?: string;
   quantity: number;
   unit_price: number;
   total_price: number;
@@ -46,6 +50,7 @@ export interface TmTransactionResp {
 
 export interface TmPurchaseResp {
   id: number;
+  purchase_type: string;
   supplier_id: number;
   supplier_name: string;
   total_amount: number;
@@ -61,6 +66,7 @@ export interface TmPurchaseResp {
 
 export interface TmPurchaseListItem {
   id: number;
+  purchase_type: string;
   supplier_id: number;
   supplier_name: string;
   total_amount: number;
@@ -82,6 +88,7 @@ export async function getTmPurchases(params?: {
   supplier_id?: number;
   search?: string;
   only_with_debt?: boolean;
+  purchase_type?: "tm" | "raw_material";
 }): Promise<TmPurchasesListResp> {
   const { data } = await httpClient.get<BackendResp<TmPurchasesListResp>>("/tm-purchases", { params });
   return data.data;

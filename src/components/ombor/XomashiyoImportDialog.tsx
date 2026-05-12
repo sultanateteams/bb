@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,40 +7,61 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
-import { useOmborStore, importRawWithPayment } from "@/lib/omborStore";
-import { formatNumber, parseNumber } from "@/lib/utils";
+import { formatNumber } from "@/lib/utils";
 import { SupplierSelect } from "@/components/shared/SupplierSelect";
 import { PaymentSection } from "@/components/shared/PaymentSection";
+import { getRawMaterialTypes } from "@/services/raw-material-types.service";
+import { getSuppliers } from "@/services/suppliers.service";
+import { useCreateTmPurchaseMutation } from "@/hooks/api/tm-purchases.hooks";
 
 export function XomashiyoImportDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
-  const raw = useOmborStore((s) => s.raw);
-  const suppliers = useOmborStore((s) => s.suppliers);
   const [type, setType] = useState<"ich" | "wl">("ich");
   const [matId, setMatId] = useState("");
   const [qty, setQty] = useState("");
   const [price, setPrice] = useState("");
   const [note, setNote] = useState("");
   const [supplierId, setSupplierId] = useState<string | null>(null);
-  const [tolanganSumma, setTolanganSumma] = useState(0);
-  const [tolovUsuli, setTolovUsuli] = useState("naqt");
-  const [tolovMuddati, setTolovMuddati] = useState("");
+  const [paidAmount, setPaidAmount] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [paymentDueDate, setPaymentDueDate] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const filtered = useMemo(() => raw.filter((r) => r.branch === type), [raw, type]);
-  const mat = useMemo(() => raw.find((r) => String(r.id) === matId), [raw, matId]);
+  const { data: allRawMaterials = [] } = useQuery({
+    queryKey: ["raw-material-types"],
+    queryFn: getRawMaterialTypes,
+  });
+
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ["suppliers"],
+    queryFn: () => getSuppliers({ is_active: true }),
+  });
+
+  const filtered = useMemo(
+    () => allRawMaterials.filter((r) => r.type.toLowerCase() === type),
+    [allRawMaterials, type],
+  );
+
+  const mat = useMemo(() => allRawMaterials.find((r) => r.id === matId), [allRawMaterials, matId]);
+
+  const supplierName = useMemo(
+    () => (supplierId ? (suppliers.find((s) => String(s.id) === supplierId)?.name ?? "—") : "—"),
+    [suppliers, supplierId],
+  );
 
   useEffect(() => { setMatId(""); }, [type]);
+
   useEffect(() => {
-    if (mat) setPrice(String(parseNumber(mat.price)));
+    if (mat) setPrice(String(mat.defaultPrice));
   }, [mat]);
 
+  const createMutation = useCreateTmPurchaseMutation();
+
   const total = (Number(qty) || 0) * (Number(price) || 0);
-  const qoldiq = Math.max(0, total - tolanganSumma);
-  const supplierName = supplierId ? suppliers.find((s) => s.id === supplierId)?.nomi : null;
+  const qoldiq = Math.max(0, total - paidAmount);
 
   const reset = () => {
     setType("ich"); setMatId(""); setQty(""); setPrice(""); setNote(""); setErrors({});
-    setSupplierId(null); setTolanganSumma(0); setTolovUsuli("naqt"); setTolovMuddati("");
+    setSupplierId(null); setPaidAmount(0); setPaymentMethod("cash"); setPaymentDueDate("");
   };
 
   const handleSave = () => {
@@ -47,27 +69,41 @@ export function XomashiyoImportDialog({ open, onOpenChange }: { open: boolean; o
     if (!matId) errs.m = "Xomashiyo tanlang";
     if (!qty || Number(qty) <= 0) errs.q = "Miqdor > 0";
     if (!price || Number(price) <= 0) errs.p = "Narx > 0";
-    if (tolanganSumma > total) errs.t = "To'langan summa jami summadan oshib ketdi";
+    if (!supplierId) errs.s = "Ta'minotchi tanlang";
+    if (paidAmount > total) errs.t = "To'langan summa jami summadan oshib ketdi";
     if (Object.keys(errs).length) { setErrors(errs); return; }
 
-    importRawWithPayment({
-      materialId: Number(matId),
-      qty: Number(qty),
-      price: Number(price),
-      note,
-      supplierId: supplierId || undefined,
-      tolanganSumma,
-      tolovUsuli,
-      tolovMuddati: tolovMuddati || undefined,
-    });
-
-    if (qoldiq > 0) {
-      toast.success(`✅ Xomashiyo import qilindi. Kreditorlik: ${formatNumber(qoldiq)} so'm`);
-    } else {
-      toast.success("✅ Xomashiyo import qilindi");
-    }
-    reset();
-    onOpenChange(false);
+    createMutation.mutate(
+      {
+        purchase_type: "raw_material",
+        supplier_id: Number(supplierId),
+        items: [
+          {
+            raw_material_type_id: Number(matId),
+            quantity: Number(qty),
+            unit_price: Number(price),
+            notes: note || undefined,
+          },
+        ],
+        paid_amount: paidAmount,
+        payment_method: paymentMethod,
+        payment_due_date: paymentDueDate || undefined,
+      },
+      {
+        onSuccess: () => {
+          if (qoldiq > 0) {
+            toast.success(`✅ Xomashiyo import qilindi. Kreditorlik: ${formatNumber(qoldiq)} so'm`);
+          } else {
+            toast.success("✅ Xomashiyo import qilindi");
+          }
+          reset();
+          onOpenChange(false);
+        },
+        onError: (err: any) => {
+          toast.error(err?.message || "Xatolik yuz berdi");
+        },
+      },
+    );
   };
 
   return (
@@ -96,7 +132,7 @@ export function XomashiyoImportDialog({ open, onOpenChange }: { open: boolean; o
               <SelectTrigger><SelectValue placeholder="Tanlang" /></SelectTrigger>
               <SelectContent>
                 {filtered.map((r) => (
-                  <SelectItem key={r.id} value={String(r.id)}>{r.name} ({r.unit})</SelectItem>
+                  <SelectItem key={r.id} value={r.id}>{r.name} ({r.unit})</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -124,35 +160,48 @@ export function XomashiyoImportDialog({ open, onOpenChange }: { open: boolean; o
             </div>
           </div>
 
-          <SupplierSelect value={supplierId} onChange={setSupplierId} />
+          <SupplierSelect
+            value={supplierId}
+            onChange={setSupplierId}
+            required
+            error={errors.s}
+          />
 
           {total > 0 && (
             <PaymentSection
               jamiSumma={total}
-              tolanganSumma={tolanganSumma}
-              onTolanganChange={setTolanganSumma}
-              tolovUsuli={tolovUsuli}
-              onTolovUsuliChange={setTolovUsuli}
-              tolovMuddati={tolovMuddati}
-              onTolovMuddatiChange={setTolovMuddati}
+              tolanganSumma={paidAmount}
+              onTolanganChange={setPaidAmount}
+              tolovUsuli={paymentMethod}
+              onTolovUsuliChange={setPaymentMethod}
+              tolovMuddati={paymentDueDate}
+              onTolovMuddatiChange={setPaymentDueDate}
             />
           )}
+
+          {errors.t && <p className="text-xs text-destructive">{errors.t}</p>}
 
           {total > 0 && mat && (
             <div className="rounded-lg border bg-muted/30 p-3 text-sm space-y-1">
               <div>📦 Xomashiyo: {mat.name}</div>
               <div>📏 Miqdor: {qty} {mat.unit}</div>
               <div>💰 Jami summa: {formatNumber(total)} so'm</div>
-              {tolanganSumma > 0 && <div>✅ To'lanadi: {formatNumber(tolanganSumma)} so'm</div>}
+              {paidAmount > 0 && <div>✅ To'lanadi: {formatNumber(paidAmount)} so'm</div>}
               {qoldiq > 0 && <div className="text-red-600">🔴 Kreditga: {formatNumber(qoldiq)} so'm</div>}
-              <div>🏢 Ta'minotchi: {supplierName || "—"}</div>
+              <div>🏢 Ta'minotchi: {supplierName}</div>
             </div>
           )}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Bekor qilish</Button>
-          <Button onClick={handleSave} className="bg-gradient-brand">Saqlash</Button>
+          <Button
+            onClick={handleSave}
+            className="bg-gradient-brand"
+            disabled={createMutation.isPending}
+          >
+            {createMutation.isPending ? "Saqlanmoqda..." : "Saqlash"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

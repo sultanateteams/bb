@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/PageHeader";
 import { BranchBadge } from "@/components/Badges";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -13,6 +14,7 @@ import { TmAddDialog } from "@/components/ombor/TmAddDialog";
 import { WlImportDialog } from "@/components/ombor/WlImportDialog";
 import { XomashiyoImportDialog } from "@/components/ombor/XomashiyoImportDialog";
 import type { Branch, ProductStatus } from "@/lib/mockData";
+import { getRawMaterialTypes } from "@/services/raw-material-types.service";
 
 type StatusFilter = "all" | ProductStatus;
 type BranchFilter = "all" | Branch;
@@ -123,18 +125,38 @@ function ProductsTab({ onTm, onWl }: { onTm: () => void; onWl: () => void }) {
 function RawTab({ onImport }: { onImport: () => void }) {
   const navigate = useNavigate();
   const raw = useOmborStore((s) => s.raw);
+  const { data: rawTypes = [] } = useQuery({
+    queryKey: ["raw-material-types"],
+    queryFn: getRawMaterialTypes,
+  });
   const [q, setQ] = useState("");
   const [branch, setBranch] = useState<"all" | "ich" | "wl">("all");
 
-  const rows = useMemo(
-    () =>
-      raw.filter((r) => {
-        if (q && !r.name.toLowerCase().includes(q.toLowerCase())) return false;
-        if (branch !== "all" && r.branch !== branch) return false;
-        return true;
-      }),
-    [raw, q, branch],
-  );
+  const rows = useMemo(() => {
+    // API dagi barcha xomashyolarni olamiz, local qoldiq bilan moslab chiqamiz.
+    const merged = rawTypes.map((t) => {
+      const local = raw.find(
+        (r) =>
+          r.name.trim().toLowerCase() === t.name.trim().toLowerCase() &&
+          r.branch.toUpperCase() === t.type.toUpperCase(),
+      );
+      return {
+        id: t.id,
+        name: t.name,
+        branch: t.type.toLowerCase() as "ich" | "wl",
+        stock: local?.stock ?? 0,
+        min: t.minStock,
+        unit: t.unit,
+        price: formatNumber(t.defaultPrice),
+      };
+    });
+
+    return merged.filter((r) => {
+      if (q && !r.name.toLowerCase().includes(q.toLowerCase())) return false;
+      if (branch !== "all" && r.branch !== branch) return false;
+      return true;
+    });
+  }, [rawTypes, raw, q, branch]);
 
   return (
     <div className="rounded-xl border bg-card overflow-hidden">
@@ -210,7 +232,10 @@ export default function Ombor() {
   const [wlOpen, setWlOpen] = useState(false);
   const [rawOpen, setRawOpen] = useState(false);
   const products = useOmborStore((s) => s.products);
-  const raw = useOmborStore((s) => s.raw);
+  const { data: rawTypes = [] } = useQuery({
+    queryKey: ["raw-material-types"],
+    queryFn: getRawMaterialTypes,
+  });
 
   return (
     <div className="space-y-6">
@@ -218,7 +243,7 @@ export default function Ombor() {
       <Tabs defaultValue="products" className="space-y-4">
         <TabsList>
           <TabsTrigger value="products">Tayyor mahsulot ({products.length})</TabsTrigger>
-          <TabsTrigger value="raw">Xomashiyo ({raw.length})</TabsTrigger>
+          <TabsTrigger value="raw">Xomashiyo ({rawTypes.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="products"><ProductsTab onTm={() => setTmOpen(true)} onWl={() => setWlOpen(true)} /></TabsContent>
         <TabsContent value="raw"><RawTab onImport={() => setRawOpen(true)} /></TabsContent>
