@@ -3,7 +3,7 @@ import { authStore } from "@/store/useAuthStore";
 import { ApiError, ApiResponse } from "@/types/api";
 import { RefreshResult } from "@/types/auth";
 
-const API_URL = import.meta.env.VITE_APP_API || "https://apis.abs-software.uz";
+const API_URL = import.meta.env.VITE_APP_API || "https://api.abs-software.uz";
 
 let isRefreshing = false;
 
@@ -93,7 +93,8 @@ httpClient.interceptors.response.use(
       const refreshToken = getRefreshToken();
       if (!refreshToken) {
         try {
-          authStore.getState().logout();
+          // TODO: Comment out logout for debugging - uncomment after API is fixed
+          // authStore.getState().logout();
         } catch {}
         return Promise.reject(createApiError(error));
       }
@@ -145,7 +146,8 @@ httpClient.interceptors.response.use(
         const apiError = createApiError(refreshError as AxiosError<any>);
         processQueue(apiError, null);
         try {
-          authStore.getState().logout();
+          // TODO: Comment out logout for debugging - uncomment after API is fixed
+          // authStore.getState().logout();
         } catch {}
         return Promise.reject(apiError);
       } finally {
