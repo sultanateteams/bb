@@ -5,6 +5,8 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  // BASE yo'lini ko'rsatish MIME xatosini oldini oladi
+  base: "/", 
   server: {
     host: "::",
     port: 8080,
