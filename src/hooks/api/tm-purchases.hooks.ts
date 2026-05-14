@@ -17,6 +17,7 @@ export function useTmPurchasesQuery(params?: {
   supplier_id?: number;
   search?: string;
   only_with_debt?: boolean;
+  purchase_type?: "tm" | "raw_material";
 }) {
   return useQuery({
     queryKey: [...TM_PURCHASES_KEY, params],

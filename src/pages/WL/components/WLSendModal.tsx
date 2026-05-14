@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { products, rawMaterials, bom } from "@/lib/mockData";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,22 +9,32 @@ import { Separator } from "@/components/ui/separator";
 import { AlertCircle, CheckCircle, Plus, Trash2 } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { getProductTypes } from "@/services/product-types.service";
+import {
+  getProductBOMEnriched,
+  createWLProduction,
+  type ProductBOMEnrichedItem,
+} from "@/services/wl-productions.service";
+import { toast } from "sonner";
 
-interface BOMItem {
-  materialId: number;
-  name: string;
-  unit: string;
-  quantityPer1Unit: number;
-  calculatedQuantity: number;
-  stockQuantity: number;
+interface BOMRow extends ProductBOMEnrichedItem {
+  calculatedQty: number;
   isEnough: boolean;
 }
 
 interface SendProduct {
-  productId: number;
+  productTypeId: number | null;
   quantity: number;
-  bomItems: BOMItem[];
+  bomRows: BOMRow[];
+  loadingBOM: boolean;
 }
+
+const emptyProduct = (): SendProduct => ({
+  productTypeId: null,
+  quantity: 0,
+  bomRows: [],
+  loadingBOM: false,
+});
 
 interface Props {
   open: boolean;
@@ -32,71 +42,124 @@ interface Props {
 }
 
 export default function WLSendModal({ open, onOpenChange }: Props) {
-  const [productsList, setProductsList] = useState<SendProduct[]>([
-    { productId: 0, quantity: 0, bomItems: [] },
-  ]);
+  const queryClient = useQueryClient();
+  const [productsList, setProductsList] = useState<SendProduct[]>([emptyProduct()]);
 
-  const wlProducts = products.filter((p) => p.branch === "wl");
+  const { data: allProducts = [] } = useQuery({
+    queryKey: ["product-types"],
+    queryFn: getProductTypes,
+  });
+
+  const wlProducts = allProducts.filter((p) => p.type === "WL" && p.isActive);
 
   const addProduct = () => {
-    setProductsList([...productsList, { productId: 0, quantity: 0, bomItems: [] }]);
+    setProductsList((prev) => [...prev, emptyProduct()]);
   };
 
   const removeProduct = (index: number) => {
-    setProductsList(productsList.filter((_, i) => i !== index));
+    setProductsList((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const updateProduct = (index: number, field: keyof SendProduct, value: any) => {
-    const newList = [...productsList];
-    (newList[index] as any)[field] = value;
-    if (field === "productId" || field === "quantity") {
-      calculateBOM(newList[index]);
-    }
-    setProductsList(newList);
-  };
-
-  const calculateBOM = (product: SendProduct) => {
-    if (!product.productId || !product.quantity) {
-      product.bomItems = [];
-      return;
-    }
-    const productBOM = bom[product.productId];
-    if (!productBOM) {
-      product.bomItems = [];
-      return;
-    }
-    product.bomItems = productBOM.map((item) => {
-      const material = rawMaterials.find((m) => m.id === item.materialId);
-      const calculated = item.perUnit * product.quantity;
-      const stock = material ? material.stock : 0;
+  const computeBOMRows = (bomItems: ProductBOMEnrichedItem[], qty: number): BOMRow[] =>
+    bomItems.map((item) => {
+      const calculated = item.qty_per_unit * qty;
       return {
-        materialId: item.materialId,
-        name: item.name,
-        unit: item.unit,
-        quantityPer1Unit: item.perUnit,
-        calculatedQuantity: calculated,
-        stockQuantity: stock,
-        isEnough: stock >= calculated,
+        ...item,
+        calculatedQty: calculated,
+        isEnough: item.current_stock >= calculated,
       };
+    });
+
+  const handleProductSelect = async (index: number, productTypeId: number) => {
+    setProductsList((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], productTypeId, bomRows: [], loadingBOM: true };
+      return next;
+    });
+
+    try {
+      const bomItems = await getProductBOMEnriched(productTypeId);
+      setProductsList((prev) => {
+        const next = [...prev];
+        const qty = next[index].quantity;
+        next[index] = {
+          ...next[index],
+          bomRows: qty > 0 ? computeBOMRows(bomItems, qty) : bomItems.map((item) => ({ ...item, calculatedQty: 0, isEnough: true })),
+          loadingBOM: false,
+        };
+        return next;
+      });
+    } catch {
+      setProductsList((prev) => {
+        const next = [...prev];
+        next[index] = { ...next[index], bomRows: [], loadingBOM: false };
+        return next;
+      });
+    }
+  };
+
+  const handleQuantityChange = (index: number, qty: number) => {
+    setProductsList((prev) => {
+      const next = [...prev];
+      const product = next[index];
+      const bomItems = product.bomRows.map(({ calculatedQty: _, isEnough: __, ...rest }) => rest as ProductBOMEnrichedItem);
+      next[index] = {
+        ...product,
+        quantity: qty,
+        bomRows: qty > 0 ? computeBOMRows(bomItems, qty) : product.bomRows.map((r) => ({ ...r, calculatedQty: 0, isEnough: true })),
+      };
+      return next;
     });
   };
 
-  const allEnough = productsList.every((p) =>
-    p.bomItems.every((item) => item.isEnough)
-  );
+  const handleOverrideQty = (productIndex: number, bomIndex: number, newQty: number) => {
+    setProductsList((prev) => {
+      const next = [...prev];
+      const rows = [...next[productIndex].bomRows];
+      rows[bomIndex] = {
+        ...rows[bomIndex],
+        calculatedQty: newQty,
+        isEnough: rows[bomIndex].current_stock >= newQty,
+      };
+      next[productIndex] = { ...next[productIndex], bomRows: rows };
+      return next;
+    });
+  };
+
+  const allEnough = productsList.every((p) => p.bomRows.every((r) => r.isEnough));
+  const hasValidItems = productsList.some((p) => p.productTypeId && p.quantity > 0);
+
+  const mutation = useMutation({
+    mutationFn: createWLProduction,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["wl-productions"] });
+      queryClient.invalidateQueries({ queryKey: ["raw-material-types"] });
+      toast.success("Ishlab chiqarishga jo'natildi");
+      onOpenChange(false);
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Xatolik yuz berdi");
+    },
+  });
 
   const handleSave = () => {
-    // Mock save: in real, call API to deduct stock and add to archive
-    console.log("Saving WL send:", productsList);
-    onOpenChange(false);
-    setProductsList([{ productId: 0, quantity: 0, bomItems: [] }]);
+    const items = productsList
+      .filter((p) => p.productTypeId && p.quantity > 0)
+      .map((p) => ({ product_type_id: p.productTypeId!, quantity: p.quantity }));
+
+    if (items.length === 0) return;
+
+    const today = new Date().toISOString().slice(0, 10);
+    mutation.mutate({ sent_date: today, items });
   };
 
   useEffect(() => {
     if (!open) {
-      setProductsList([{ productId: 0, quantity: 0, bomItems: [] }]);
+      setProductsList([emptyProduct()]);
     }
   }, [open]);
+
+  const allBOMRows = productsList.flatMap((p) => p.bomRows);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -109,9 +172,7 @@ export default function WLSendModal({ open, onOpenChange }: Props) {
           {productsList.map((product, index) => (
             <div key={index} className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium">
-                  Mahsulot {index + 1}
-                </h3>
+                <h3 className="text-lg font-medium">Mahsulot {index + 1}</h3>
                 {productsList.length > 1 && (
                   <Button
                     size="sm"
@@ -128,15 +189,15 @@ export default function WLSendModal({ open, onOpenChange }: Props) {
                 <div>
                   <Label>Mahsulot</Label>
                   <Select
-                    value={product.productId.toString()}
-                    onValueChange={(v) => updateProduct(index, "productId", parseInt(v))}
+                    value={product.productTypeId?.toString() ?? ""}
+                    onValueChange={(v) => handleProductSelect(index, parseInt(v))}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Tanlang" />
                     </SelectTrigger>
                     <SelectContent>
                       {wlProducts.map((p) => (
-                        <SelectItem key={p.id} value={p.id.toString()}>
+                        <SelectItem key={p.id} value={p.id}>
                           {p.name}
                         </SelectItem>
                       ))}
@@ -149,13 +210,17 @@ export default function WLSendModal({ open, onOpenChange }: Props) {
                   <Input
                     type="number"
                     value={product.quantity || ""}
-                    onChange={(e) => updateProduct(index, "quantity", parseInt(e.target.value) || 0)}
+                    onChange={(e) => handleQuantityChange(index, parseInt(e.target.value) || 0)}
                     placeholder="1000"
                   />
                 </div>
               </div>
 
-              {product.bomItems.length > 0 && (
+              {product.loadingBOM && (
+                <p className="text-sm text-muted-foreground">BOM yuklanmoqda...</p>
+              )}
+
+              {!product.loadingBOM && product.bomRows.length > 0 && (
                 <div>
                   <Label>Tarkib (BOM)</Label>
                   <div className="rounded-lg border overflow-hidden mt-2">
@@ -170,31 +235,25 @@ export default function WLSendModal({ open, onOpenChange }: Props) {
                         </tr>
                       </thead>
                       <tbody>
-                        {product.bomItems.map((item, i) => (
-                          <tr key={i} className="border-t">
-                            <td className="p-3 font-medium">{item.name}</td>
-                            <td className="p-3 text-right text-muted-foreground">
-                              {item.unit}
-                            </td>
+                        {product.bomRows.map((row, bi) => (
+                          <tr key={bi} className="border-t">
+                            <td className="p-3 font-medium">{row.raw_material_name}</td>
+                            <td className="p-3 text-right text-muted-foreground">{row.unit}</td>
                             <td className="p-3 text-right tabular-nums">
-                              {formatNumber(item.calculatedQuantity)}
+                              {formatNumber(row.calculatedQty)}
                             </td>
                             <td className="p-3 text-right">
                               <Input
                                 type="number"
-                                value={item.calculatedQuantity}
-                                onChange={(e) => {
-                                  const newQty = parseFloat(e.target.value) || 0;
-                                  const newItems = [...product.bomItems];
-                                  newItems[i].calculatedQuantity = newQty;
-                                  newItems[i].isEnough = newItems[i].stockQuantity >= newQty;
-                                  updateProduct(index, "bomItems", newItems);
-                                }}
-                                className="w-24 h-8 text-right tabular-nums"
+                                value={row.calculatedQty}
+                                onChange={(e) =>
+                                  handleOverrideQty(index, bi, parseFloat(e.target.value) || 0)
+                                }
+                                className="w-28 h-8 text-right tabular-nums"
                               />
                             </td>
                             <td className="p-3 text-center">
-                              {item.isEnough ? (
+                              {row.isEnough ? (
                                 <CheckCircle className="h-5 w-5 text-green-500 mx-auto" />
                               ) : (
                                 <AlertCircle className="h-5 w-5 text-red-500 mx-auto" />
@@ -217,25 +276,31 @@ export default function WLSendModal({ open, onOpenChange }: Props) {
             Yana mahsulot qo'shish
           </Button>
 
-          <div className="bg-muted/50 p-4 rounded-lg">
-            <h4 className="font-medium mb-2">Ombor tekshiruvi</h4>
-            {productsList.flatMap((p) => p.bomItems).map((item, i) => (
-              <div key={i} className="flex items-center justify-between text-sm">
-                <span>{item.name}:</span>
-                <span className={cn(item.isEnough ? "text-green-600" : "text-red-600")}>
-                  Kerakli: {formatNumber(item.calculatedQuantity)} {item.unit} | Omborda: {formatNumber(item.stockQuantity)} {item.unit}
-                  {item.isEnough ? " ✅ yetarli" : " ❌ yetarlicha emas"}
-                </span>
-              </div>
-            ))}
-          </div>
+          {allBOMRows.length > 0 && (
+            <div className="bg-muted/50 p-4 rounded-lg">
+              <h4 className="font-medium mb-2">Ombor tekshiruvi</h4>
+              {allBOMRows.map((row, i) => (
+                <div key={i} className="flex items-center justify-between text-sm">
+                  <span>{row.raw_material_name}:</span>
+                  <span className={cn(row.isEnough ? "text-green-600" : "text-red-600")}>
+                    Kerakli: {formatNumber(row.calculatedQty)} {row.unit} | Omborda:{" "}
+                    {formatNumber(row.current_stock)} {row.unit}
+                    {row.isEnough ? " ✅ yetarli" : " ❌ yetarlicha emas"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Bekor qilish
             </Button>
-            <Button onClick={handleSave} disabled={!allEnough}>
-              Saqlash
+            <Button
+              onClick={handleSave}
+              disabled={!allEnough || !hasValidItems || mutation.isPending}
+            >
+              {mutation.isPending ? "Saqlanmoqda..." : "Saqlash"}
             </Button>
           </div>
         </div>

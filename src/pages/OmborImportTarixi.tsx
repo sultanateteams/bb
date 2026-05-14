@@ -1,46 +1,33 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { format, parse } from "date-fns";
-import { CalendarIcon, ArrowLeft, CreditCard } from "lucide-react";
+import { format } from "date-fns";
+import { CalendarIcon, ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
-import { BranchBadge } from "@/components/Badges";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useOmborStore } from "@/lib/omborStore";
+import { useTmPurchasesQuery } from "@/hooks/api/tm-purchases.hooks";
 import { cn, formatNumber } from "@/lib/utils";
-import { PaymentDialog } from "@/components/kreditorlik/PaymentDialog";
-
-function parseUz(d: string): Date {
-  return parse(d, "dd.MM.yyyy", new Date());
-}
 
 export default function OmborImportTarixi() {
   const navigate = useNavigate();
-  const history = useOmborStore((s) => s.history);
-  const suppliers = useOmborStore((s) => s.suppliers);
-  const [branch, setBranch] = useState<"all" | "ich" | "wl" | "tm">("all");
   const [from, setFrom] = useState<Date | undefined>();
   const [to, setTo] = useState<Date | undefined>();
-  const [paymentHistoryId, setPaymentHistoryId] = useState<number | null>(null);
+  const { data, isLoading, isError, error } = useTmPurchasesQuery({
+    page: 1,
+    limit: 200,
+    purchase_type: "raw_material",
+  });
 
   const rows = useMemo(() => {
-    return history
-      .filter((h) => {
-        if (branch !== "all" && h.branch !== branch) return false;
-        const d = parseUz(h.date);
+    const purchases = data?.purchases ?? [];
+    return purchases.filter((p) => {
+        const d = new Date(p.created_at);
         if (from && d < from) return false;
         if (to && d > to) return false;
         return true;
-      })
-      .sort((a, b) => parseUz(b.date).getTime() - parseUz(a.date).getTime());
-  }, [history, branch, from, to]);
-
-  const isFullyPaid = (r: typeof history[0]) => {
-    if (r.tolangan_summa === undefined && r.jami_summa === undefined) return true; // legacy
-    return r.tolov_holati === "tolangan";
-  };
+      });
+  }, [data?.purchases, from, to]);
 
   return (
     <div className="space-y-6">
@@ -56,16 +43,6 @@ export default function OmborImportTarixi() {
 
       <div className="rounded-xl border bg-card overflow-hidden">
         <div className="p-4 border-b flex flex-wrap items-center gap-2">
-          <Select value={branch} onValueChange={(v) => setBranch(v as any)}>
-            <SelectTrigger className="h-9 w-[140px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Hammasi</SelectItem>
-              <SelectItem value="ich">ICH</SelectItem>
-              <SelectItem value="wl">WL</SelectItem>
-              <SelectItem value="tm">TM</SelectItem>
-            </SelectContent>
-          </Select>
-
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm" className={cn("gap-2", !from && "text-muted-foreground")}>
@@ -90,8 +67,8 @@ export default function OmborImportTarixi() {
             </PopoverContent>
           </Popover>
 
-          {(from || to) && (
-            <Button variant="ghost" size="sm" onClick={() => { setFrom(undefined); setTo(undefined); }}>Tozalash</Button>
+            {(from || to) && (
+              <Button variant="ghost" size="sm" onClick={() => { setFrom(undefined); setTo(undefined); }}>Tozalash</Button>
           )}
 
           <span className="ml-auto text-xs text-muted-foreground">{rows.length} ta yozuv</span>
@@ -101,76 +78,53 @@ export default function OmborImportTarixi() {
           <thead>
             <tr>
               <th className="w-12">No</th>
-              <th>Nomi</th>
-              <th>Turi</th>
-              <th>Miqdori</th>
-              <th>Jami summa</th>
+              <th>Import ID</th>
               <th>Ta'minotchi</th>
+              <th>Itemlar soni</th>
+              <th>Jami summa</th>
               <th>To'langan</th>
               <th>Qoldiq</th>
               <th>Holat</th>
               <th>Sana</th>
-              <th>Amallar</th>
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && (
-              <tr><td colSpan={11} className="text-center text-muted-foreground py-8">Yozuv yo'q</td></tr>
+            {isLoading && (
+              <tr><td colSpan={9} className="text-center text-muted-foreground py-8">Yuklanmoqda...</td></tr>
+            )}
+            {isError && (
+              <tr><td colSpan={9} className="text-center text-destructive py-8">{(error as any)?.message || "Xatolik yuz berdi"}</td></tr>
+            )}
+            {!isLoading && !isError && rows.length === 0 && (
+              <tr><td colSpan={9} className="text-center text-muted-foreground py-8">Yozuv yo'q</td></tr>
             )}
             {rows.map((r, i) => {
-              const supplier = suppliers.find((s) => s.id === r.tamirotchi_id);
-              const fullyPaid = isFullyPaid(r);
+              const fullyPaid = r.debt_amount <= 0.001;
               return (
                 <tr key={r.id}>
                   <td className="text-muted-foreground">{i + 1}</td>
-                  <td className="font-medium">{r.name}</td>
-                  <td><BranchBadge branch={r.branch} /></td>
-                  <td className="tabular-nums font-semibold">{r.qty} {r.unit}</td>
-                  <td className="tabular-nums font-semibold">{r.total} so'm</td>
-                  <td>
-                    {supplier ? (
-                      <button className="text-primary hover:underline text-sm" onClick={() => navigate(`/tamirotchilar/${supplier.id}`)}>
-                        {supplier.nomi}
-                      </button>
-                    ) : "—"}
-                  </td>
-                  <td className="tabular-nums text-green-600">{r.tolangan_summa !== undefined ? formatNumber(r.tolangan_summa) : "—"}</td>
-                  <td className={`tabular-nums font-semibold ${(r.qoldiq || 0) > 0 ? "text-red-600" : "text-muted-foreground"}`}>
-                    {r.qoldiq !== undefined ? (r.qoldiq > 0 ? formatNumber(r.qoldiq) : "—") : "—"}
+                  <td className="font-medium">#{r.id}</td>
+                  <td>{r.supplier_name}</td>
+                  <td className="tabular-nums">{r.item_count}</td>
+                  <td className="tabular-nums font-semibold">{formatNumber(r.total_amount)} so'm</td>
+                  <td className="tabular-nums text-green-600">{formatNumber(r.paid_amount)}</td>
+                  <td className={`tabular-nums font-semibold ${r.debt_amount > 0.001 ? "text-red-600" : "text-muted-foreground"}`}>
+                    {r.debt_amount > 0.001 ? formatNumber(r.debt_amount) : "—"}
                   </td>
                   <td>
-                    {r.tolov_holati ? (
                       <span className={`rounded px-2 py-0.5 text-xs font-medium ${
-                        r.tolov_holati === "tolangan" ? "bg-green-100 text-green-800" :
-                        r.tolov_holati === "qisman" ? "bg-orange-100 text-orange-800" :
-                        "bg-red-100 text-red-800"
+                        fullyPaid ? "bg-green-100 text-green-800" : (r.paid_amount > 0 ? "bg-orange-100 text-orange-800" : "bg-red-100 text-red-800")
                       }`}>
-                        {r.tolov_holati === "tolangan" ? "To'langan" : r.tolov_holati === "qisman" ? "Qisman" : "To'lanmagan"}
+                        {fullyPaid ? "To'langan" : (r.paid_amount > 0 ? "Qisman" : "To'lanmagan")}
                       </span>
-                    ) : "—"}
                   </td>
-                  <td>{r.date}</td>
-                  <td>
-                    {!fullyPaid && (r.qoldiq || 0) > 0 ? (
-                      <Button variant="ghost" size="sm" className="gap-1 text-primary" onClick={() => setPaymentHistoryId(r.id)}>
-                        <CreditCard className="h-3.5 w-3.5" /> To'lov
-                      </Button>
-                    ) : "—"}
-                  </td>
+                  <td>{format(new Date(r.created_at), "dd.MM.yyyy")}</td>
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
-
-      {paymentHistoryId && (
-        <PaymentDialog
-          open={!!paymentHistoryId}
-          onOpenChange={(open) => { if (!open) setPaymentHistoryId(null); }}
-          historyId={paymentHistoryId}
-        />
-      )}
     </div>
   );
 }

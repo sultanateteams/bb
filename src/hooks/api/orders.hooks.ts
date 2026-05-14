@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createOrder, getOrders, type CreateOrderPayload } from "@/services/orders.service";
+import { addOrderTransaction, createOrder, getOrderByID, getOrders, type AddOrderTransactionPayload, type CreateOrderPayload } from "@/services/orders.service";
 
 export const ORDERS_KEY = ["orders"];
 
@@ -24,6 +24,25 @@ export function useCreateOrderMutation() {
   return useMutation({
     mutationFn: (payload: CreateOrderPayload) => createOrder(payload),
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ORDERS_KEY });
+    },
+  });
+}
+
+export function useOrderByIDQuery(id: number) {
+  return useQuery({
+    queryKey: [...ORDERS_KEY, "detail", id],
+    queryFn: () => getOrderByID(id),
+    enabled: Number.isFinite(id) && id > 0,
+  });
+}
+
+export function useAddOrderTransactionMutation(orderId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: AddOrderTransactionPayload) => addOrderTransaction(orderId, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...ORDERS_KEY, "detail", orderId] });
       qc.invalidateQueries({ queryKey: ORDERS_KEY });
     },
   });

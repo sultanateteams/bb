@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +54,7 @@ export function XomashiyoImportDialog({ open, onOpenChange }: { open: boolean; o
     if (mat) setPrice(String(mat.defaultPrice));
   }, [mat]);
 
+  const queryClient = useQueryClient();
   const createMutation = useCreateTmPurchaseMutation();
 
   const total = (Number(qty) || 0) * (Number(price) || 0);
@@ -91,6 +92,7 @@ export function XomashiyoImportDialog({ open, onOpenChange }: { open: boolean; o
       },
       {
         onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ["raw-material-types"] });
           if (qoldiq > 0) {
             toast.success(`✅ Xomashiyo import qilindi. Kreditorlik: ${formatNumber(qoldiq)} so'm`);
           } else {

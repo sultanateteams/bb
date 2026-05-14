@@ -5,6 +5,7 @@ interface RawMaterial {
   unit: 'kg' | 'litre' | 'dona';
   defaultPrice: number;   // so'mda
   minStock: number;
+  currentStock: number;
   description?: string;
   createdAt: string;
 }

@@ -5,12 +5,12 @@ import WLMaterialsTab from "./components/WLMaterialsTab";
 import WLArchiveTab from "./components/WLArchiveTab";
 import WLSendModal from "./components/WLSendModal";
 import WLDetailModal from "./components/WLDetailModal";
-import type { WlOp } from "@/lib/mockData";
+import type { WLProductionListItem } from "@/services/wl-productions.service";
 
 export default function WLPage() {
   const [activeTab, setActiveTab] = useState("materials");
   const [isSendModalOpen, setIsSendModalOpen] = useState(false);
-  const [selectedWLRecord, setSelectedWLRecord] = useState<WlOp | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<WLProductionListItem | null>(null);
 
   return (
     <div className="space-y-6">
@@ -33,15 +33,15 @@ export default function WLPage() {
         </TabsContent>
 
         <TabsContent value="archive">
-          <WLArchiveTab onDetail={setSelectedWLRecord} />
+          <WLArchiveTab onDetail={setSelectedRecord} />
         </TabsContent>
       </Tabs>
 
       <WLSendModal open={isSendModalOpen} onOpenChange={setIsSendModalOpen} />
       <WLDetailModal
-        record={selectedWLRecord}
-        open={!!selectedWLRecord}
-        onOpenChange={(open) => !open && setSelectedWLRecord(null)}
+        record={selectedRecord}
+        open={!!selectedRecord}
+        onOpenChange={(open) => !open && setSelectedRecord(null)}
       />
     </div>
   );

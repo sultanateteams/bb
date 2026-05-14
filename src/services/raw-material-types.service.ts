@@ -10,6 +10,7 @@ type RawRow = {
   unit: string;
   standard_price: number;
   min_stock: number;
+  current_stock: number;
   is_active: boolean;
   created_at: string;
 };
@@ -25,6 +26,7 @@ function toFrontend(r: RawRow): RawMaterial {
     unit: r.unit as RawMaterial["unit"],
     defaultPrice: Number(r.standard_price),
     minStock: Number(r.min_stock),
+    currentStock: Number(r.current_stock ?? 0),
     createdAt: r.created_at.slice(0, 10),
   };
 }

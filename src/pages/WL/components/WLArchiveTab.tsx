@@ -1,47 +1,66 @@
 import { useMemo, useState } from "react";
-import { wlOps, products } from "@/lib/mockData";
+import { useQuery } from "@tanstack/react-query";
 import { StatusBadge } from "@/components/Badges";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { formatNumber } from "@/lib/utils";
 import { Eye } from "lucide-react";
-import type { WlOp, WlStatus } from "@/lib/mockData";
+import { listWLProductions, type WLProductionListItem } from "@/services/wl-productions.service";
+import { useQuery as useProductQuery } from "@tanstack/react-query";
+import { getProductTypes } from "@/services/product-types.service";
 
 interface Props {
-  onDetail: (record: WlOp) => void;
+  onDetail: (record: WLProductionListItem) => void;
 }
 
+const STATUS_LABEL: Record<string, string> = {
+  in_production: "Ishlab chiqarishdagi",
+  produced: "Ishlab chiqarilgan",
+};
+
 export default function WLArchiveTab({ onDetail }: Props) {
-  const [statusFilter, setStatusFilter] = useState<WlStatus | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [productFilter, setProductFilter] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  const wlProducts = products.filter((p) => p.branch === "wl");
+  const { data: listResp } = useQuery({
+    queryKey: ["wl-productions"],
+    queryFn: () => listWLProductions({ limit: 200 }),
+  });
 
-  const filteredOps = useMemo(() => {
-    return wlOps.filter((op) => {
+  const { data: allProducts = [] } = useProductQuery({
+    queryKey: ["product-types"],
+    queryFn: getProductTypes,
+  });
+
+  const wlProducts = allProducts.filter((p) => p.type === "WL" && p.isActive);
+  const productions = listResp?.productions ?? [];
+
+  const filtered = useMemo(() => {
+    return productions.filter((op) => {
       if (statusFilter !== "all" && op.status !== statusFilter) return false;
-      if (productFilter !== "all" && op.productId.toString() !== productFilter) return false;
-      if (dateFrom && op.date < dateFrom) return false;
-      if (dateTo && op.date > dateTo) return false;
+      if (productFilter !== "all" && !op.product_names.includes(productFilter)) return false;
+      const date = op.sent_date?.slice(0, 10) ?? "";
+      if (dateFrom && date < dateFrom) return false;
+      if (dateTo && date > dateTo) return false;
       return true;
     });
-  }, [statusFilter, productFilter, dateFrom, dateTo]);
+  }, [productions, statusFilter, productFilter, dateFrom, dateTo]);
 
   return (
     <div className="space-y-4">
       <div className="rounded-xl border bg-card p-4">
         <div className="flex flex-wrap items-center gap-4">
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as WlStatus | "all")}>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Holati" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Hammasi</SelectItem>
-              <SelectItem value="Ishlab chiqarishdagi">Ishlab chiqarishdagi</SelectItem>
-              <SelectItem value="Ishlab chiqarilgan">Ishlab chiqarilgan</SelectItem>
+              <SelectItem value="in_production">Ishlab chiqarishdagi</SelectItem>
+              <SelectItem value="produced">Ishlab chiqarilgan</SelectItem>
             </SelectContent>
           </Select>
 
@@ -52,7 +71,7 @@ export default function WLArchiveTab({ onDetail }: Props) {
             <SelectContent>
               <SelectItem value="all">Hammasi</SelectItem>
               {wlProducts.map((p) => (
-                <SelectItem key={p.id} value={p.id.toString()}>
+                <SelectItem key={p.id} value={p.name}>
                   {p.name}
                 </SelectItem>
               ))}
@@ -96,49 +115,54 @@ export default function WLArchiveTab({ onDetail }: Props) {
             </tr>
           </thead>
           <tbody>
-            {filteredOps.length === 0 && (
+            {filtered.length === 0 && (
               <tr>
                 <td colSpan={8} className="text-center text-muted-foreground py-8">
                   Hech narsa topilmadi
                 </td>
               </tr>
             )}
-            {filteredOps.map((op) => (
-              <tr key={op.id}>
-                <td className="font-mono text-xs font-semibold">{op.id}</td>
-                <td>{op.date}</td>
-                <td className="font-medium">{op.product}</td>
-                <td className="text-right tabular-nums">{formatNumber(op.qty)} dona</td>
-                <td className="text-right tabular-nums">
-                  {op.receivedQuantity ? formatNumber(op.receivedQuantity) : "-"}
-                </td>
-                <td className="text-right tabular-nums">
-                  {op.extraQuantity ? (
-                    <span className="text-yellow-600 font-medium">
-                      +{formatNumber(op.extraQuantity)}
-                    </span>
-                  ) : (
-                    "-"
-                  )}
-                </td>
-                <td>
-                  <StatusBadge
-                    status={op.status}
-                    tone={op.status === "Ishlab chiqarilgan" ? "success" : "warning"}
-                  />
-                </td>
-                <td className="text-right">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => onDetail(op)}
-                    className="h-8 w-8 p-0"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                </td>
-              </tr>
-            ))}
+            {filtered.map((op) => {
+              const label = STATUS_LABEL[op.status] ?? op.status;
+              const received = op.received_quantity ?? null;
+              const extra = received != null ? received - op.total_quantity : null;
+              return (
+                <tr key={op.id}>
+                  <td className="font-mono text-xs font-semibold">{op.wl_code}</td>
+                  <td>{op.sent_date?.slice(0, 10)}</td>
+                  <td className="font-medium">{op.product_names}</td>
+                  <td className="text-right tabular-nums">
+                    {formatNumber(op.total_quantity)} {op.unit}
+                  </td>
+                  <td className="text-right tabular-nums">
+                    {received != null ? formatNumber(received) : "-"}
+                  </td>
+                  <td className="text-right tabular-nums">
+                    {extra != null && extra > 0 ? (
+                      <span className="text-yellow-600 font-medium">+{formatNumber(extra)}</span>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+                  <td>
+                    <StatusBadge
+                      status={label}
+                      tone={op.status === "produced" ? "success" : "warning"}
+                    />
+                  </td>
+                  <td className="text-right">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => onDetail(op)}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

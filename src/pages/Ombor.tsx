@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/PageHeader";
 import { BranchBadge } from "@/components/Badges";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -15,11 +15,22 @@ import { WlImportDialog } from "@/components/ombor/WlImportDialog";
 import { XomashiyoImportDialog } from "@/components/ombor/XomashiyoImportDialog";
 import type { Branch, ProductStatus } from "@/lib/mockData";
 import { getRawMaterialTypes } from "@/services/raw-material-types.service";
+import { getProductTypes } from "@/services/product-types.service";
+import { getTmPurchases, getTmPurchaseByID } from "@/services/tm-purchases.service";
+import { getOrders, getOrderByID } from "@/services/orders.service";
 
-type StatusFilter = "all" | ProductStatus;
+type UIProductStatus = ProductStatus | "qisman";
+type StatusFilter = "all" | UIProductStatus;
 type BranchFilter = "all" | Branch;
 
-function StatusPill({ s }: { s: ProductStatus }) {
+function StatusPill({ s }: { s: UIProductStatus }) {
+  if (s === "qisman") {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-warning/15 text-warning">
+        Qisman
+      </span>
+    );
+  }
   return (
     <span
       className={cn(
@@ -33,7 +44,69 @@ function StatusPill({ s }: { s: ProductStatus }) {
 }
 
 function ProductsTab({ onTm, onWl }: { onTm: () => void; onWl: () => void }) {
-  const products = useOmborStore((s) => s.products);
+  const { data: productTypes = [] } = useQuery({ queryKey: ["product-types"], queryFn: getProductTypes });
+  const { data: tmPurchases } = useQuery({
+    queryKey: ["tm-purchases", { purchase_type: "tm", page: 1, limit: 200 }],
+    queryFn: () => getTmPurchases({ purchase_type: "tm", page: 1, limit: 200 }),
+  });
+  const tmDetailQueries = useQueries({
+    queries: (tmPurchases?.purchases ?? []).map((p) => ({
+      queryKey: ["tm-purchases", p.id],
+      queryFn: () => getTmPurchaseByID(p.id),
+      enabled: true,
+    })),
+  });
+  const { data: ordersResp } = useQuery({
+    queryKey: ["orders", { page: 1, limit: 200 }],
+    queryFn: () => getOrders({ page: 1, limit: 200 }),
+  });
+  const orderDetailQueries = useQueries({
+    queries: (ordersResp?.orders ?? []).map((o) => ({
+      queryKey: ["orders", o.id],
+      queryFn: () => getOrderByID(o.id),
+      enabled: true,
+    })),
+  });
+
+  const products = useMemo(() => {
+    const incomingByProduct = new Map<number, number>();
+    tmDetailQueries.forEach((q) => {
+      q.data?.items?.forEach((it) => {
+        if (!it.product_type_id) return;
+        incomingByProduct.set(it.product_type_id, (incomingByProduct.get(it.product_type_id) ?? 0) + it.quantity);
+      });
+    });
+
+    const orderedByProduct = new Map<number, number>();
+    orderDetailQueries.forEach((q) => {
+      q.data?.items?.forEach((it) => {
+        orderedByProduct.set(it.product_type_id, (orderedByProduct.get(it.product_type_id) ?? 0) + it.quantity);
+      });
+    });
+
+    return productTypes
+      .filter((p) => p.isActive)
+      .map((p) => {
+        const id = Number(p.id);
+        const incoming = incomingByProduct.get(id) ?? 0;
+        const ordered = orderedByProduct.get(id) ?? 0;
+        const stock = incoming - ordered;
+        let status: UIProductStatus = "bo'sh";
+        if (ordered > 0 && stock <= 0) status = "band";
+        else if (ordered > 0 && stock > 0) status = "qisman";
+
+        return {
+          id,
+          name: p.name,
+          branch: p.type.toLowerCase() as Branch,
+          status,
+          stock,
+          unit: p.unit,
+          min: p.minStock,
+          price: "—",
+        };
+      });
+  }, [productTypes, tmDetailQueries, orderDetailQueries]);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [branch, setBranch] = useState<BranchFilter>("all");
@@ -104,7 +177,7 @@ function ProductsTab({ onTm, onWl }: { onTm: () => void; onWl: () => void }) {
                 <td className="text-muted-foreground">{idx + 1}</td>
                 <td className="font-medium">{r.name}</td>
                 <td><BranchBadge branch={r.branch} /></td>
-                <td><StatusPill s={r.status} /></td>
+                  <td><StatusPill s={r.status as UIProductStatus} /></td>
                 <td className={cn("font-semibold tabular-nums", low && "text-destructive")}>
                   {low && <AlertCircle className="inline h-3 w-3 mr-1" />}
                   {formatNumber(r.stock)}
@@ -124,7 +197,6 @@ function ProductsTab({ onTm, onWl }: { onTm: () => void; onWl: () => void }) {
 
 function RawTab({ onImport }: { onImport: () => void }) {
   const navigate = useNavigate();
-  const raw = useOmborStore((s) => s.raw);
   const { data: rawTypes = [] } = useQuery({
     queryKey: ["raw-material-types"],
     queryFn: getRawMaterialTypes,
@@ -133,30 +205,22 @@ function RawTab({ onImport }: { onImport: () => void }) {
   const [branch, setBranch] = useState<"all" | "ich" | "wl">("all");
 
   const rows = useMemo(() => {
-    // API dagi barcha xomashyolarni olamiz, local qoldiq bilan moslab chiqamiz.
-    const merged = rawTypes.map((t) => {
-      const local = raw.find(
-        (r) =>
-          r.name.trim().toLowerCase() === t.name.trim().toLowerCase() &&
-          r.branch.toUpperCase() === t.type.toUpperCase(),
-      );
-      return {
-        id: t.id,
-        name: t.name,
-        branch: t.type.toLowerCase() as "ich" | "wl",
-        stock: local?.stock ?? 0,
-        min: t.minStock,
-        unit: t.unit,
-        price: formatNumber(t.defaultPrice),
-      };
-    });
+    const merged = rawTypes.map((t) => ({
+      id: t.id,
+      name: t.name,
+      branch: t.type.toLowerCase() as "ich" | "wl",
+      stock: t.currentStock,
+      min: t.minStock,
+      unit: t.unit,
+      price: formatNumber(t.defaultPrice),
+    }));
 
     return merged.filter((r) => {
       if (q && !r.name.toLowerCase().includes(q.toLowerCase())) return false;
       if (branch !== "all" && r.branch !== branch) return false;
       return true;
     });
-  }, [rawTypes, raw, q, branch]);
+  }, [rawTypes, q, branch]);
 
   return (
     <div className="rounded-xl border bg-card overflow-hidden">
